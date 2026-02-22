@@ -2,8 +2,11 @@ package main;
 
 import mindustry.mod.Plugin;
 import mindustry.net.Administration;
+import mindustry.ui.Menus;
 import mindustry.game.EventType;
 import arc.Events;
+import arc.struct.ObjectMap;
+import arc.struct.Seq;
 import arc.util.CommandHandler;
 import arc.util.Log;
 import arc.util.Time;
@@ -21,6 +24,8 @@ import mindustry.world.blocks.storage.CoreBlock;
 public class Main extends Plugin {
 
     public Integer maxTime = 10800;
+    public int teamMenuId, mainMenuId, joinMenuId, acceptMenuId, denyMenuId, kickMenuId;
+    public static ObjectMap<String, String> teamRequests = new ObjectMap<>();
 
     @Override
     public void init() {
@@ -41,6 +46,72 @@ public class Main extends Plugin {
         Cache.teams_Info = new HashMap<>();
         Cache.teamRequests = new HashMap<>();
         maxTime = 648000;
+
+        //Team menu setup
+        teamMenuId = Menus.registerMenu((player, selection) -> {
+            if (selection == -1) return;
+            if(selection == 0){
+                showJoinMenu(player);
+            }
+            if (!isLeader(player)) {
+            player.sendMessage("Only team leaders can manage their teams.");
+         return;
+            }
+            if (selection == 1) {
+                showAcceptMenu(player);
+            } 
+            if (selection == 2) {
+                showKickMenu(player);
+            } 
+            if (selection == 3) {
+                showDenyMenu(player);
+            }
+            
+        });
+
+
+
+        joinMenuId = Menus.registerMenu((player, selection) -> {
+            if (selection == -1) return;
+            Seq<Player> otherPlayers = getOthers(player);
+            Player target = otherPlayers.get(selection);
+            teamRequests.put(player.uuid(), target.uuid());
+            player.sendMessage("You have sent a team join request to " + target.name);
+            target.sendMessage(player.name + " has requested to join your team.");
+        });
+
+        acceptMenuId = Menus.registerMenu((player, selection) -> {
+            if (selection == -1) return;
+             Seq<Player> requesters = getRequesters(player);
+            Player found = requesters.get(selection);
+        
+            found.team(player.team());
+            teamRequests.remove(found.uuid());
+            player.sendMessage("You accepted " + found.name);
+            found.sendMessage("Your team join request has been accepted by " + player.name);
+        });
+        denyMenuId = Menus.registerMenu((player, selection) -> {
+        if (selection == -1) return;
+        Seq<Player> requesters = getRequesters(player);
+        Player found = requesters.get(selection);
+        
+        teamRequests.remove(found.uuid());
+        player.sendMessage("[orange]You have denied the request from " + found.name);
+        found.sendMessage("[red]Your team join request has been denied.");
+        });
+        kickMenuId = Menus.registerMenu((player, selection) -> {
+        if (selection == -1) return;
+        Seq<Player> teammates = getTeammates(player);
+        if (selection < teammates.size) {
+        Player target = teammates.get(selection);
+        
+        target.team(Team.derelict);
+        if(target.unit() != null) target.unit().kill();
+        target.team(Team.derelict);
+        player.sendMessage("[red]You have kicked " + target.name);
+        target.sendMessage("[red]You have been kicked from the team.");
+        }
+        });
 
         // setting up a timer to restart the game after maxTime seconds
         Time.runTask(0, new Runnable() {
@@ -107,7 +178,7 @@ public class Main extends Plugin {
         Events.on(EventType.TapEvent.class, event -> {
             Player pla = event.player;
             Tile tile = event.tile;
-            if (pla.team() == Team.all[0]) {
+            if (pla.team() == Team.all[0] || pla.team() == Team.all[1]) {
                 if (tile.solid()) {
                     return;
                 }
@@ -135,7 +206,7 @@ public class Main extends Plugin {
                         info.leaderUuid = pla.uuid();
                     }
                 } else {
-                    Call.sendMessage("Too close to another core");
+                    pla.sendMessage("Too close to another core");
                 }
             }
         });
@@ -198,6 +269,90 @@ public class Main extends Plugin {
                 });
             });
         });
+    }
+
+    private Seq<Player> getOthers(Player p) {
+    Seq<Player> list = new Seq<>();
+    Groups.player.each(other -> {
+        if (other != p && other.team() != Team.derelict) {
+            list.add(other);
+        }
+    });
+    return list;
+    }
+
+    private Seq<Player> getRequesters(Player p) {
+    Seq<Player> list = new Seq<>();
+    for(var entry : teamRequests.entries()){
+        if(entry.value.equals(p.uuid())){
+            Player req = Groups.player.find(found -> found.uuid().equals(entry.key));
+            if(req != null) list.add(req);
+        }
+    }
+    return list;
+    }
+
+    private Seq<Player> getTeammates(Player p) {
+    Seq<Player> list = new Seq<>();
+    Groups.player.each(other -> other.team() == p.team() && other != p, list::add);
+    return list;
+    }
+
+    private void showJoinMenu(Player p) {
+    Seq<Player> players = getOthers(p);
+    String[][] buttons = new String[players.size][1];
+    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
+    Call.menu(p.con, joinMenuId, "Join to", "Choose a lider", buttons);
+    }
+
+    private void showAcceptMenu(Player p) {
+    Seq<Player> players = getRequesters(p);
+    if(players.isEmpty()){ p.sendMessage("No requests available]"); return; }
+    String[][] buttons = new String[players.size][1];
+    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
+    Call.menu(p.con, acceptMenuId, "Accept team request", "Choose a player:", buttons);
+    }
+
+    private void showDenyMenu(Player p) {
+    Seq<Player> players = getRequesters(p);
+    if(players.isEmpty()){ p.sendMessage("No requests available."); return; }
+    String[][] buttons = new String[players.size][1];
+    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
+    Call.menu(p.con, denyMenuId, "Deny team request", "Choose a player to deny:", buttons);
+    }
+
+    private void showKickMenu(Player p) {
+    Seq<Player> players = getTeammates(p);
+    if(players.isEmpty()){ p.sendMessage("[red]No teammates available."); return; }
+    String[][] buttons = new String[players.size][1];
+    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
+    Call.menu(p.con, kickMenuId, "Kick player from team", "Choose a player to kick:", buttons);
+    }
+    private boolean isLeader(Player p) {
+    var info = Cache.teams_Info.get(p.team());
+    return info != null && info.leaderUuid.equals(p.uuid());
+    }
+
+
+    public void handleMenuSelection(Player player, int selection) {
+        switch (selection) {
+            case 0:
+                // Handle first menu option
+                player.sendMessage("You selected option to join a team.");
+                break;
+            case 1:
+                // Handle second menu option
+                player.sendMessage("You selected option to accept a team join request.");
+                break;
+            case 2:
+                // Handle third menu option
+                player.sendMessage("You selected option to kick a player from your team.");
+                break;
+            case 3:
+                // Handle fourth menu option
+                player.sendMessage("You selected option to decline a team join request.");
+                break;
+        }
     }
 
     protected void updateMOTD() {
@@ -278,71 +433,16 @@ public class Main extends Plugin {
                     }
                 });
 
-        handler.<Player>register("join", "<name...>", "Join a team", (args, player) -> {
-            if (args.length == 0) {
-                Player target = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
-                if (target == null) {
-                    player.sendMessage("Player is not  found");
-                    return;
-                }
-                if (target.team() == Team.all[0]) {
-                    player.sendMessage("Player is not in a team");
-                    return;
-                }
-                if (player.team() == target.team()) {
-                    player.sendMessage("You are already in this team");
-                    return;
-                }
-                // Sending a request to the target player
-                Cache.teamRequests.put(player.uuid(), target.uuid());
-                player.sendMessage("Request sent to " + target.name);
-                target.sendMessage(
-                        player.name + " wants to join your team. Type /accept to accept or /decline to decline");
-            }
+       handler.<Player>register("team", "Team managment", (args, player) -> {
+            String[][] buttons = {
+                {"[green]Join"}, 
+                {"[blue]Accept"},
+                {"[orange]Kick"},
+                {"[red]Deny"}
+            };
+            // Open the team management menu for the player
+            Call.menu(player.con, teamMenuId, "[accent]Team Menu", "Choose an action:", buttons);
         });
-
-        handler.<Player>register("accept", "Accept a team join request", (args, player) -> {
-            Player requester = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
-            if (requester != null) {
-                requester.team(player.team());
-                Cache.teamRequests.remove(requester.uuid());
-                requester.sendMessage("You are now in team " + player.team().name);
-                player.sendMessage("You accepted " + requester.name + " to your team.");
-            } else {
-                player.sendMessage("No active requests from this player.");
-            }
-        });
-
-        handler.<Player>register("kick", "<name...>", "Kick a  player from  your team", (args, player) -> {
-
-            Player target = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
-            if (target != null && target.team() == player.team()) {
-                if (target == player) {
-                    player.sendMessage("You cannot kick yourself");
-                    return;
-                }
-                target.team(Team.derelict);
-                target.unit().kill();
-                target.sendMessage("You have been kicked from the team by " + player.name);
-                player.sendMessage("You kicked " + target.name + " from the team.");
-            } else {
-                player.sendMessage("Player is not found or not in your team");
-            }
-
-        });
-
-        handler.<Player>register("deny", "Decline a team join request", (args, player) -> {
-            Player requester = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
-            if (requester != null) {
-                Cache.teamRequests.remove(requester.uuid());
-                requester.sendMessage(
-                        "Your request to join " + player.team().name + " has been declined by " + player.name);
-                player.sendMessage("You declined " + requester.name + " to your team.");
-            } else {
-                player.sendMessage("No active requests from this player.");
-            }
-        });
-
     }
 
     public void registerServerCommands(CommandHandler handler) {
