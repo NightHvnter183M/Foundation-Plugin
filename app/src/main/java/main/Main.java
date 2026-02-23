@@ -31,8 +31,8 @@ public class Main extends Plugin {
     public void init() {
         // Initialization code here
         // Sertting up server name and MOTD
-        Administration.Config.serverName.set("Foundation PvP");
-        Administration.Config.motd.set("Our discord: discord.gg/Hamn9EhyQj");
+        Administration.Config.serverName.set("[#5F9EA0]Foundation PvP");
+        Administration.Config.motd.set("Our discord: [#00FF00]discord.gg/Hamn9EhyQj");
         // Starting the server
         Events.on(EventType.WorldLoadBeginEvent.class, event -> {
             Log.info("world load");
@@ -45,72 +45,74 @@ public class Main extends Plugin {
         Cache.playerTeams = new HashMap<>();
         Cache.teams_Info = new HashMap<>();
         Cache.teamRequests = new HashMap<>();
-        maxTime = 648000;
-
-        //Team menu setup
+        // Team menu setup
         teamMenuId = Menus.registerMenu((player, selection) -> {
-            if (selection == -1) return;
-            if(selection == 0){
+            if (selection == -1)
+                return;
+            if (selection == 0) {
                 showJoinMenu(player);
             }
             if (!isLeader(player)) {
-            player.sendMessage("Only team leaders can manage their teams.");
-         return;
+                player.sendMessage("[#FFC0CB]Only team leaders can manage their teams.");
+                return;
             }
             if (selection == 1) {
                 showAcceptMenu(player);
-            } 
+            }
             if (selection == 2) {
                 showKickMenu(player);
-            } 
+            }
             if (selection == 3) {
                 showDenyMenu(player);
             }
-            
+
         });
 
-
-
         joinMenuId = Menus.registerMenu((player, selection) -> {
-            if (selection == -1) return;
+            if (selection == -1)
+                return;
             Seq<Player> otherPlayers = getOthers(player);
             Player target = otherPlayers.get(selection);
             teamRequests.put(player.uuid(), target.uuid());
-            player.sendMessage("You have sent a team join request to " + target.name);
-            target.sendMessage(player.name + " has requested to join your team.");
+            player.sendMessage("[#F4A460]You have sent a team join request to " + target.name);
+            target.sendMessage(player.name + " [#F4A460]has requested to join your team.");
         });
 
         acceptMenuId = Menus.registerMenu((player, selection) -> {
-            if (selection == -1) return;
-             Seq<Player> requesters = getRequesters(player);
+            if (selection == -1)
+                return;
+            Seq<Player> requesters = getRequesters(player);
             Player found = requesters.get(selection);
-        
+
             found.team(player.team());
             teamRequests.remove(found.uuid());
-            player.sendMessage("You accepted " + found.name);
-            found.sendMessage("Your team join request has been accepted by " + player.name);
+            player.sendMessage("[#32CD32]You accepted " + found.name);
+            found.sendMessage("[#32CD32]Your team join request has been accepted by " + player.name);
         });
         denyMenuId = Menus.registerMenu((player, selection) -> {
-        if (selection == -1) return;
-        Seq<Player> requesters = getRequesters(player);
-        Player found = requesters.get(selection);
-        
-        teamRequests.remove(found.uuid());
-        player.sendMessage("[orange]You have denied the request from " + found.name);
-        found.sendMessage("[red]Your team join request has been denied.");
+            if (selection == -1)
+                return;
+            Seq<Player> requesters = getRequesters(player);
+            Player found = requesters.get(selection);
+
+            teamRequests.remove(found.uuid());
+            player.sendMessage("[#DC143C]You have denied the request from " + found.name);
+            found.sendMessage("[#DC143C]Your team join request has been denied.");
         });
         kickMenuId = Menus.registerMenu((player, selection) -> {
-        if (selection == -1) return;
-        Seq<Player> teammates = getTeammates(player);
-        if (selection < teammates.size) {
-        Player target = teammates.get(selection);
-        
-        target.team(Team.derelict);
-        if(target.unit() != null) target.unit().kill();
-        target.team(Team.derelict);
-        player.sendMessage("[red]You have kicked " + target.name);
-        target.sendMessage("[red]You have been kicked from the team.");
-        }
+            if (selection == -1)
+                return;
+            Seq<Player> teammates = getTeammates(player);
+            if (selection < teammates.size) {
+                Player target = teammates.get(selection);
+
+                target.team(Team.derelict);
+                if (target.unit() != null)
+                    target.unit().kill();
+                target.team(Team.derelict);
+                player.sendMessage("[#8B0000]You have kicked " + target.name);
+                target.sendMessage("[#8B0000]You have been kicked from the team.");
+            }
         });
 
         // setting up a timer to restart the game after maxTime seconds
@@ -206,7 +208,7 @@ public class Main extends Plugin {
                         info.leaderUuid = pla.uuid();
                     }
                 } else {
-                    pla.sendMessage("Too close to another core");
+                    pla.sendMessage("[#8B0000]Too close to another core");
                 }
             }
         });
@@ -216,11 +218,8 @@ public class Main extends Plugin {
                 return;
             Team builderTeam = event.team;
             Tile tile = event.tile;
-            Player player = event.unit != null ? event.unit.getPlayer() : null;
             Time.run(1f, () -> {
                 tile.setNet(Blocks.coreShard, builderTeam, 0);
-                if (player != null) {
-                }
             });
         });
 
@@ -272,87 +271,80 @@ public class Main extends Plugin {
     }
 
     private Seq<Player> getOthers(Player p) {
-    Seq<Player> list = new Seq<>();
-    Groups.player.each(other -> {
-        if (other != p && other.team() != Team.derelict) {
-            list.add(other);
-        }
-    });
-    return list;
+        Seq<Player> list = new Seq<>();
+        Groups.player.each(other -> {
+            if (other != p && other.team() != Team.derelict) {
+                list.add(other);
+            }
+        });
+        return list;
     }
 
     private Seq<Player> getRequesters(Player p) {
-    Seq<Player> list = new Seq<>();
-    for(var entry : teamRequests.entries()){
-        if(entry.value.equals(p.uuid())){
-            Player req = Groups.player.find(found -> found.uuid().equals(entry.key));
-            if(req != null) list.add(req);
+        Seq<Player> list = new Seq<>();
+        for (var entry : teamRequests.entries()) {
+            if (entry.value.equals(p.uuid())) {
+                Player req = Groups.player.find(found -> found.uuid().equals(entry.key));
+                if (req != null)
+                    list.add(req);
+            }
         }
-    }
-    return list;
+        return list;
     }
 
     private Seq<Player> getTeammates(Player p) {
-    Seq<Player> list = new Seq<>();
-    Groups.player.each(other -> other.team() == p.team() && other != p, list::add);
-    return list;
+        Seq<Player> list = new Seq<>();
+        Groups.player.each(other -> other.team() == p.team() && other != p, list::add);
+        return list;
     }
 
     private void showJoinMenu(Player p) {
-    Seq<Player> players = getOthers(p);
-    String[][] buttons = new String[players.size][1];
-    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
-    Call.menu(p.con, joinMenuId, "Join to", "Choose a lider", buttons);
+        Seq<Player> players = getOthers(p);
+        String[][] buttons = new String[players.size][1];
+        for (int i = 0; i < players.size; i++)
+            buttons[i][0] = players.get(i).name;
+        Call.menu(p.con, joinMenuId, "Join to", "Choose a lider", buttons);
     }
 
     private void showAcceptMenu(Player p) {
-    Seq<Player> players = getRequesters(p);
-    if(players.isEmpty()){ p.sendMessage("No requests available]"); return; }
-    String[][] buttons = new String[players.size][1];
-    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
-    Call.menu(p.con, acceptMenuId, "Accept team request", "Choose a player:", buttons);
+        Seq<Player> players = getRequesters(p);
+        if (players.isEmpty()) {
+            p.sendMessage("[#F08080]No requests available]");
+            return;
+        }
+        String[][] buttons = new String[players.size][1];
+        for (int i = 0; i < players.size; i++)
+            buttons[i][0] = players.get(i).name;
+        Call.menu(p.con, acceptMenuId, "Accept team request", "Choose a player:", buttons);
     }
 
     private void showDenyMenu(Player p) {
-    Seq<Player> players = getRequesters(p);
-    if(players.isEmpty()){ p.sendMessage("No requests available."); return; }
-    String[][] buttons = new String[players.size][1];
-    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
-    Call.menu(p.con, denyMenuId, "Deny team request", "Choose a player to deny:", buttons);
+        Seq<Player> players = getRequesters(p);
+        if (players.isEmpty()) {
+            p.sendMessage("[#F08080]No requests available.");
+            return;
+        }
+        String[][] buttons = new String[players.size][1];
+        for (int i = 0; i < players.size; i++)
+            buttons[i][0] = players.get(i).name;
+        Call.menu(p.con, denyMenuId, "Deny team request", "Choose a player to deny:", buttons);
     }
 
     private void showKickMenu(Player p) {
-    Seq<Player> players = getTeammates(p);
-    if(players.isEmpty()){ p.sendMessage("[red]No teammates available."); return; }
-    String[][] buttons = new String[players.size][1];
-    for(int i = 0; i < players.size; i++) buttons[i][0] = players.get(i).name;
-    Call.menu(p.con, kickMenuId, "Kick player from team", "Choose a player to kick:", buttons);
-    }
-    private boolean isLeader(Player p) {
-    var info = Cache.teams_Info.get(p.team());
-    return info != null && info.leaderUuid.equals(p.uuid());
-    }
-
-
-    public void handleMenuSelection(Player player, int selection) {
-        switch (selection) {
-            case 0:
-                // Handle first menu option
-                player.sendMessage("You selected option to join a team.");
-                break;
-            case 1:
-                // Handle second menu option
-                player.sendMessage("You selected option to accept a team join request.");
-                break;
-            case 2:
-                // Handle third menu option
-                player.sendMessage("You selected option to kick a player from your team.");
-                break;
-            case 3:
-                // Handle fourth menu option
-                player.sendMessage("You selected option to decline a team join request.");
-                break;
+        Seq<Player> players = getTeammates(p);
+        if (players.isEmpty()) {
+            p.sendMessage("[#8B0000]No teammates available.");
+            return;
         }
+        String[][] buttons = new String[players.size][1];
+        for (int i = 0; i < players.size; i++)
+            buttons[i][0] = players.get(i).name;
+        Call.menu(p.con, kickMenuId, "Kick player from team", "Choose a player to kick:", buttons);
+    }
+
+    private boolean isLeader(Player p) {
+        var info = Cache.teams_Info.get(p.team());
+        return info != null && info.leaderUuid.equals(p.uuid());
     }
 
     protected void updateMOTD() {
@@ -368,11 +360,11 @@ public class Main extends Plugin {
         // Register commands for client here
         handler.<Player>register("restart", "Restarts the game", (args, player) -> {
             if (Cache.restartVotes.contains(player.uuid())) {
-                player.sendMessage("You have already voted to restart.");
+                player.sendMessage("[#F08080]You have already voted to restart.");
                 return;
             }
             Cache.restartVotes.add(player.uuid());
-            int votesNeeded = (int) (Groups.player.size() * 0.6); // 60% of players need to vote
+            int votesNeeded = (int) ((Groups.player.size() * 0.6) + 1); // 60% of players need to vote
             int currentVotes = Cache.restartVotes.size;
             Call.sendMessage(
                     player.name + " has voted to restart the game. (" + currentVotes + "/" + votesNeeded + " votes)");
@@ -433,12 +425,12 @@ public class Main extends Plugin {
                     }
                 });
 
-       handler.<Player>register("team", "Team managment", (args, player) -> {
+        handler.<Player>register("team", "Team managment", (args, player) -> {
             String[][] buttons = {
-                {"[green]Join"}, 
-                {"[blue]Accept"},
-                {"[orange]Kick"},
-                {"[red]Deny"}
+                    { "[green]Join" },
+                    { "[blue]Accept" },
+                    { "[orange]Kick" },
+                    { "[red]Deny" }
             };
             // Open the team management menu for the player
             Call.menu(player.con, teamMenuId, "[accent]Team Menu", "Choose an action:", buttons);
