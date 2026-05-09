@@ -35,6 +35,7 @@ public class Main extends Plugin {
         for (Team team : Team.all) {
             Cache.teams_Info.put(team, new TeamInfo());
         }
+        new MenuManager().init();
 
         // setting up a timer to restart the game after maxTime seconds
         Time.runTask(0, new Runnable() {
@@ -265,7 +266,7 @@ public class Main extends Plugin {
                     { "[red]Deny" }
             };
             // Open the team management menu for the player
-            Call.menu(player.con, MenuManager.teamMenuId, "[accent]Team Menu", "Choose an action:", buttons);
+            Call.menu(player.con,  Cache.teamMenuId, "[accent]Team Menu", "Choose an action:", buttons);
         });
     }
 
