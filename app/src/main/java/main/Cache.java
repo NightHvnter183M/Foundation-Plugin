@@ -1,15 +1,14 @@
 package main;
 
-import java.util.HashMap;
+import arc.struct.ObjectMap;
 import arc.struct.ObjectSet;
 import mindustry.game.Team;
-import mindustry.net.Administration;
 
 public class Cache {
     
-    public static HashMap<String, Administration.PlayerInfo> players_Info = new HashMap<>();
-    public static HashMap<String, Team> playerTeams = new HashMap<>();
-    public static HashMap<Team, TeamInfo> teams_Info = new HashMap<>();
-    public static HashMap<String, String> teamRequests = new HashMap<>();
+    public static ObjectMap<String, PlayerInfo> players_Info = new ObjectMap<>();
+    public static ObjectMap<String, Team> playerTeams = new ObjectMap<>();
+    public static ObjectMap<Team, TeamInfo> teams_Info = new ObjectMap<>();
+    public static ObjectMap<String, String> teamRequests = new ObjectMap<>();
     public static ObjectSet<String> restartVotes = new ObjectSet<>();
 }

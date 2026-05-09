@@ -14,7 +14,8 @@ repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
     // Add jitpack for GitHub dependencies
-    maven { url 'https://jitpack.io' }
+    maven { url "https://www.jitpack.io" }
+    maven { url "https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository" }
 }
 
 dependencies {
@@ -24,8 +25,10 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     // This dependency is used by the application.
+    def mindustryVersion = 'v157.4'
     implementation libs.guava
-    compileOnly "com.github.Anuken.Mindustry:core:v155"
+    compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
+    compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
