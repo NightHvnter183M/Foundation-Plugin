@@ -16,19 +16,18 @@ import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
-
 import static main.Cache.teamRequests;
+import static main.Resources.maxTime;
+import static main.Resources.welcomeText;
 
 public class Main extends Plugin {
-
-    public Integer maxTime = 10800;
 
     @Override
     public void init() {
         // Initialization code here
         // Setting up server name and MOTD
         Administration.Config.serverName.set("[#5F9EA0]Foundation PvP");
-        Administration.Config.motd.set("Our discord: [#00FF00]discord.gg/Hamn9EhyQj");
+        Administration.Config.motd.set("");
         // Starting the server
         Events.on(EventType.WorldLoadBeginEvent.class, event -> Log.info("world load"));
         // Initializing the cache of teamleaders
@@ -47,7 +46,7 @@ public class Main extends Plugin {
                 String timeDisplay = String.format("%02d:%02d", minutes, seconds);
                 updateMOTD();
                 if (maxTime > 0) {
-                    Call.setHudText("Until round end: " + timeDisplay);
+                    Call.setHudText("Until round end:" + timeDisplay);
                 } else {
                     Call.setHudText("The round is ending...");
                 }
@@ -66,7 +65,7 @@ public class Main extends Plugin {
         // When the game begins we destroy the center core and put all the players into
         // team derelict
         Events.on(EventType.GameOverEvent.class, event -> {
-            Groups.player.each(p -> p.team(Team.derelict));
+            Groups.player.each(p -> p.team(Team.all[0]));
             Groups.build.each(b -> {
                 if (b instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
                     b.kill();
@@ -82,28 +81,26 @@ public class Main extends Plugin {
                 if (savedTeam != null && !savedTeam.cores().isEmpty()) {
                     pl.team(savedTeam);
                 } else {
-                    pl.team(Team.derelict);
+                    pl.team(Team.all[0]);
                 }
             } else {
-                pl.team(Team.derelict); // default team for new players
+                pl.team(Team.all[0]); // default team for new players
             }
+            Call.menu(Cache.WelcomeMenuId, "[#008B8B]Foundation PvP", welcomeText, Resources.welcomeButtons);
+
         });
         // When a player leaves the server
         Events.on(EventType.PlayerLeave.class, event -> {
 
             Player pl = event.player;
             Cache.playerTeams.put(pl.uuid(), pl.team());
-            if (!Cache.players_Info.containsKey(pl.uuid())) {
-                Cache.players_Info.put(pl.uuid(), new PlayerInfo());
-            }
-
             teamRequests.remove(event.player.uuid());
         });
         // When a player clicks on a tile to create a core and command
         Events.on(EventType.TapEvent.class, event -> {
             Player pla = event.player;
             Tile tile = event.tile;
-            if (pla.team() == Team.all[0] || pla.team() == Team.all[1]) {
+            if (pla.team() == Team.all[0]) {
                 if (tile.solid()) {
                     return;
                 }
@@ -146,12 +143,12 @@ public class Main extends Plugin {
 
         Events.on(EventType.BlockDestroyEvent.class, event -> {
             Team team = event.tile.team();
-            if (event.tile.block() instanceof CoreBlock && team != Team.derelict) {
+            if (event.tile.block() instanceof CoreBlock && team != Team.all[0]) {
                 Time.run(10f, () -> {
                     if (team.cores().isEmpty()) {
                         kill_team(team);
                         Groups.player.each(p -> p.team() == team, p -> {
-                            p.team(Team.derelict);
+                            p.team(Team.all[0]);
                             if (Cache.teams_Info.containsKey(team)) {
                                 Cache.teams_Info.get(team).leaderUuid = "";
                             }
@@ -163,14 +160,14 @@ public class Main extends Plugin {
         });
         Events.on(EventType.PlayEvent.class, event -> Time.run(1f, () -> Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> {
             b.tile.removeNet();
-            Groups.player.each(p -> p.team(Team.derelict));
+            Groups.player.each(p -> p.team(Team.all[0]));
             maxTime = 10800;
             Vars.state.rules.pvp = true;
             Vars.state.rules.pvpAutoPause = false;
             Vars.state.rules.canGameOver = false;
             Vars.state.rules.waves = false;
             Vars.state.rules.planet = Planets.sun;
-            Vars.state.rules.defaultTeam = Team.derelict;
+            Vars.state.rules.defaultTeam = Team.all[0];
             Vars.state.rules.buildCostMultiplier = 0.75f;
             Vars.state.rules.unitDamageMultiplier = 1.414f;
             Vars.state.rules.unitBuildSpeedMultiplier = 0.33f;
@@ -185,7 +182,7 @@ public class Main extends Plugin {
         int hours = maxTime / 3600;
         int minutes = (maxTime % 3600) / 60;
         String timeString = String.format("%02d:%02d", hours, minutes);
-        String motd = "Welcome to Foundation PvP!" + "Time until round end: " + timeString;
+        String motd = "Welcome to Foundation PvP!" + " Time until round end: " + timeString;
         Administration.Config.desc.set(motd);
     }
 
@@ -219,7 +216,7 @@ public class Main extends Plugin {
                     kill_team(playerTeam);
                     player.unit().kill();
                     Groups.player.each(p -> p.team() == playerTeam, p -> {
-                        p.team(Team.derelict);
+                        p.team(Team.all[0]);
                         if (Cache.teams_Info.containsKey(playerTeam)) {
                             Cache.teams_Info.get(playerTeam).leaderUuid = "";
                         }
@@ -242,17 +239,17 @@ public class Main extends Plugin {
                         }
                         if (isLeader) {
                             kill_team(player.team());
-                            player.team(Team.derelict);
+                            player.team(Team.all[0]);
                             player.unit().kill();
                             Groups.player.each(p -> p.team() == playerTeam, p -> {
-                                p.team(Team.derelict);
+                                p.team(Team.all[0]);
                                 p.unit().kill();
                             });
                             if (Cache.teams_Info.containsKey(playerTeam)) {
                                 Cache.teams_Info.get(playerTeam).leaderUuid = "";
                             }
                         } else {
-                            player.team(Team.derelict);
+                            player.team(Team.all[0]);
                             player.unit().kill();
                         }
                     }
@@ -289,8 +286,8 @@ public class Main extends Plugin {
     // Restarting the game
     public void restart() {
         Cache.restartVotes.clear();
-        Events.fire(new EventType.GameOverEvent(Team.derelict));
-        Groups.player.each(p -> p.team(Team.derelict));
+        Events.fire(new EventType.GameOverEvent(Team.all[0]));
+        Groups.player.each(p -> p.team(Team.all[0]));
 
     }
 
@@ -298,7 +295,7 @@ public class Main extends Plugin {
     public void kill_team(Team team) {
         team.data().destroyToDerelict();
         Groups.player.each(p -> p.team() == team, p -> {
-            p.team(Team.derelict);
+            p.team(Team.all[0]);
             p.unit().kill();
         });
 

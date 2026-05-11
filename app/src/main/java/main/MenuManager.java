@@ -71,12 +71,18 @@ public class MenuManager {
             if (selection < teammates.size) {
                 Player target = teammates.get(selection);
 
-                target.team(Team.derelict);
+                target.team(Team.all[0]);
                 if (target.unit() != null)
                     target.unit().kill();
-                target.team(Team.derelict);
+                target.team(Team.all[0]);
                 player.sendMessage("[#8B0000]You have kicked " + target.name);
                 target.sendMessage("[#8B0000]You have been kicked from the team.");
+            }
+        });
+
+        Cache.WelcomeMenuId = Menus.registerMenu((player, selection) ->{
+            if(selection == 0){
+                Call.openURI("https://discord.gg/GMQRKUn8W8");
             }
         });
     }
@@ -91,14 +97,22 @@ public class MenuManager {
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.joinMenuId, "Join to", "Choose a lider", buttons);
+        Call.menu(p.con, Cache.joinMenuId, "Join to", "Choose a leader", buttons);
     }
 
     private Seq<Player> getOthers(Player p) {
         Seq<Player> list = new Seq<>();
         Groups.player.each(other -> {
-            if (other != p && other.team() != Team.derelict) {
-                list.add(other);
+            if (other != p && other.team() != Team.all[0]) {
+                if (p.team() != Team.all[0]) {
+                    TeamInfo info = Cache.teams_Info.get(p.team());
+                    if (info != null && info.leaderUuid != null) {
+                        if (info.leaderUuid.equals(p.uuid())) {
+                            list.add(other);
+                        }
+                    }
+                }
+
             }
         });
         return list;
