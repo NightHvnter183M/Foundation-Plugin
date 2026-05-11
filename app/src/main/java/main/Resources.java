@@ -12,4 +12,8 @@ public class Resources {
             {"[#7289DA]Get Discord Link"},
             {"[white]Start Playing"}
     };
+    public static String custommotd = """
+           [#008B8B]Foundation PvP - [white]Mixtech pvp server
+           [white]Time until round end :
+           """;
 }

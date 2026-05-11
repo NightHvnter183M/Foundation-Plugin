@@ -17,8 +17,7 @@ import mindustry.gen.Player;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
 import static main.Cache.teamRequests;
-import static main.Resources.maxTime;
-import static main.Resources.welcomeText;
+import static main.Resources.*;
 
 public class Main extends Plugin {
 
@@ -182,7 +181,7 @@ public class Main extends Plugin {
         int hours = maxTime / 3600;
         int minutes = (maxTime % 3600) / 60;
         String timeString = String.format("%02d:%02d", hours, minutes);
-        String motd = "Welcome to Foundation PvP!" + " Time until round end: " + timeString;
+        String motd = custommotd + timeString;
         Administration.Config.desc.set(motd);
     }
 
