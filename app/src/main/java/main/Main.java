@@ -33,8 +33,8 @@ public class Main extends Plugin {
         for (Team team : Team.all) {
             Cache.teams_Info.put(team, new TeamInfo());
         }
+        MapVote.init();
         new MenuManager().init();
-
         // setting up a timer to restart the game after maxTime seconds
         Time.runTask(0, new Runnable() {
             @Override
@@ -55,7 +55,7 @@ public class Main extends Plugin {
                 } else {
                     if (maxTime == 0) {
                         maxTime = -1;
-                        restart();
+                        restart.doingrestart();
                     }
                 }
             }
@@ -85,7 +85,7 @@ public class Main extends Plugin {
             } else {
                 pl.team(Team.all[0]); // default team for new players
             }
-            Call.menu(Cache.WelcomeMenuId, "[#008B8B]Foundation PvP", welcomeText, Resources.welcomeButtons);
+            Call.menu(pl.con, Cache.WelcomeMenuId, "[#008B8B]Foundation PvP", welcomeText, Resources.welcomeButtons);
 
         });
         // When a player leaves the server
@@ -99,7 +99,7 @@ public class Main extends Plugin {
         Events.on(EventType.TapEvent.class, event -> {
             Player pla = event.player;
             Tile tile = event.tile;
-            if (pla.team() == Team.all[0]) {
+            if (pla.team() == Team.all[0]|| pla.team() == Team.all[1]) {
                 if (tile.solid()) {
                     return;
                 }
@@ -157,9 +157,7 @@ public class Main extends Plugin {
             }
 
         });
-        Events.on(EventType.PlayEvent.class, event -> Time.run(1f, () -> Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> {
-            b.tile.removeNet();
-            Groups.player.each(p -> p.team(Team.all[0]));
+        Events.on(EventType.PlayEvent.class, event -> {
             maxTime = 10800;
             Vars.state.rules.pvp = true;
             Vars.state.rules.pvpAutoPause = false;
@@ -171,10 +169,13 @@ public class Main extends Plugin {
             Vars.state.rules.unitDamageMultiplier = 1.414f;
             Vars.state.rules.unitBuildSpeedMultiplier = 0.33f;
             Vars.state.rules.unitHealthMultiplier = 1.414f;
-            Log.info("New game started");
             Call.setRules(Vars.state.rules);
-            Time.run(60f, () -> Groups.player.each(p -> p.team(Team.all[0])));
-        })));
+            Log.info("New game started. Rules applied.");
+            Time.run(2f, () -> {
+                Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
+                Groups.player.each(p -> p.team(Team.all[0]));
+            });
+        });
     }
 
     protected void updateMOTD() {
@@ -188,22 +189,8 @@ public class Main extends Plugin {
     public void registerClientCommands(CommandHandler handler) {
         // Register commands for client here
         handler.<Player>register("restart", "Restarts the game", (args, player) -> {
-            if (Cache.restartVotes.contains(player.uuid())) {
-                player.sendMessage("[#F08080]You have already voted to restart.");
-                return;
-            }
-            Cache.restartVotes.add(player.uuid());
-            int votesNeeded = (int) ((Groups.player.size() * 0.6) + 1); // 60% of players need to vote
-            int currentVotes = Cache.restartVotes.size;
-            Call.sendMessage(
-                    player.name + " has voted to restart the game. (" + currentVotes + "/" + votesNeeded + " votes)");
-            if (currentVotes >= votesNeeded) {
-                Call.sendMessage("Restarting the game...");
-                Time.run(60f, () -> {
-                    restart();
-                    Cache.restartVotes.clear();
-                });
-            }
+            if(Groups.player.size() == 1) restart.doingrestart();
+            else restart.addvotes(player);
 
         });
         handler.<Player>register("destroy", "Destroys your building", (args, player) -> {
@@ -268,7 +255,7 @@ public class Main extends Plugin {
 
     public void registerServerCommands(CommandHandler handler) {
         // Register commands for server here
-        handler.register("restart", "Restarts the game", args -> restart());
+        handler.register("restart", "Restarts the game", args -> restart.doingrestart());
     }
 
     // creating a new team
@@ -280,14 +267,6 @@ public class Main extends Plugin {
         }
         // returning a team
         return Team.all[0];
-    }
-
-    // Restarting the game
-    public void restart() {
-        Cache.restartVotes.clear();
-        Events.fire(new EventType.GameOverEvent(Team.all[0]));
-        Groups.player.each(p -> p.team(Team.all[0]));
-
     }
 
     // destroy all the buildings of a team and send them to derelict

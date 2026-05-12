@@ -1,6 +1,7 @@
 package main;
 
 import arc.struct.Seq;
+import arc.util.Log;
 import mindustry.game.Team;
 import mindustry.gen.Call;
 import mindustry.gen.Groups;
@@ -48,11 +49,25 @@ public class MenuManager {
                 return;
             Seq<Player> requesters = getRequesters(player);
             Player found = requesters.get(selection);
-
+            Team oldteam = found.team();
             found.team(player.team());
             Cache.teamRequests.remove(found.uuid());
             player.sendMessage("[#32CD32]You accepted " + found.name);
             found.sendMessage("[#32CD32]Your team join request has been accepted by " + player.name);
+            Log.info(oldteam.data().players.size);
+            if (oldteam.data().players.size <= 1){
+                kill_team(oldteam);
+                found.unit().kill();
+            }
+            else if(isLeader(found)){
+                Cache.teams_Info.get(oldteam).leaderUuid = "";
+                if (Cache.teams_Info.containsKey(oldteam)) {
+                    Player newleader = oldteam.data().players.random();
+                    Cache.teams_Info.get(oldteam).leaderUuid = newleader.uuid();
+                    TeamInfo info = Cache.teams_Info.get(oldteam);
+                    info.leaderUuid = newleader.uuid();
+                }
+            }
         });
         Cache.denyMenuId = Menus.registerMenu((player, selection) -> {
             if (selection == -1)
@@ -85,6 +100,15 @@ public class MenuManager {
                 Call.openURI("https://discord.gg/GMQRKUn8W8");
             }
         });
+    }
+
+    public void kill_team(Team team) {
+        team.data().destroyToDerelict();
+        Groups.player.each(p -> p.team() == team, p -> {
+            p.team(Team.all[0]);
+            p.unit().kill();
+        });
+
     }
 
     private boolean isLeader(Player p) {
