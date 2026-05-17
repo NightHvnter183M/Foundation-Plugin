@@ -6,30 +6,30 @@ import mindustry.gen.Call;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
 
-public class restart {
+public class Restart {
 
-    private static int voterestarttime = 300;
-    private static boolean isrestartvoting = false;
+    private static boolean IsRestartVoting = false;
     private static Timer.Task voteTask;
 
-    public static void startrestartvote(Player player){
-        if(isrestartvoting) return;
-        isrestartvoting = true;
+    public static void StartRestartVote(Player player){
+        if(IsRestartVoting) return;
+        IsRestartVoting = true;
         Call.sendMessage(player.name + " started a voting of restart. Voting will last five minutes");
         Cache.restartVotes.clear();
         Cache.restartVotes.add(player.uuid());
+        int voteRestartTime = 300;
         voteTask = Timer.schedule(() -> {
-            if (isrestartvoting) {
-                isrestartvoting = false;
+            if (IsRestartVoting) {
+                IsRestartVoting = false;
                 Call.sendMessage("[red]Not enough votes for restart. Voting is over");
                 Cache.restartVotes.clear();
             }
-        }, voterestarttime);
+        }, voteRestartTime);
     }
 
-    public static void addvotes(Player player) {
-        if (!isrestartvoting){
-            startrestartvote(player);
+    public static void AddVotes(Player player) {
+        if (!IsRestartVoting){
+            StartRestartVote(player);
             return;
         }
         if(Cache.restartVotes.contains(player.uuid())){
@@ -40,12 +40,12 @@ public class restart {
         int votesNeeded = (int) (Groups.player.size() * 0.6) + 1;
         int currentVotes = Cache.restartVotes.size;
         Call.sendMessage("[accent]" + player.name + "[white] Voted for restart. ([green]" + currentVotes + "[white]/[orange]" + votesNeeded + "[white])");
-        if(currentVotes >= votesNeeded) doingrestart();
+        if(currentVotes >= votesNeeded) DoingRestart();
 
     }
 
-    public static void doingrestart(){
-        isrestartvoting = false;
+    public static void DoingRestart(){
+        IsRestartVoting = false;
         if (voteTask != null) voteTask.cancel();
         Cache.playerTeams.clear();
         MapVote.start();

@@ -55,7 +55,7 @@ public class Main extends Plugin {
                 } else {
                     if (maxTime == 0) {
                         maxTime = -1;
-                        restart.doingrestart();
+                        Restart.DoingRestart();
                     }
                 }
             }
@@ -189,8 +189,8 @@ public class Main extends Plugin {
     public void registerClientCommands(CommandHandler handler) {
         // Register commands for client here
         handler.<Player>register("restart", "Restarts the game", (args, player) -> {
-            if(Groups.player.size() == 1) restart.doingrestart();
-            else restart.addvotes(player);
+            if(Groups.player.size() == 1) Restart.DoingRestart();
+            else Restart.AddVotes(player);
 
         });
         handler.<Player>register("destroy", "Destroys your building", (args, player) -> {
@@ -255,7 +255,7 @@ public class Main extends Plugin {
 
     public void registerServerCommands(CommandHandler handler) {
         // Register commands for server here
-        handler.register("restart", "Restarts the game", args -> restart.doingrestart());
+        handler.register("restart", "Restarts the game", args -> Restart.DoingRestart());
     }
 
     // creating a new team

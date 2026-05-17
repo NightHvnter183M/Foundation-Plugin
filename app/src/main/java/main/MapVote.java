@@ -14,37 +14,37 @@ import static main.Cache.votes;
 import static main.Cache.mapVoteMenuId;
 
 public class MapVote {
-    private static Seq<Map> mapOptions = new Seq<>();
-    private static boolean isvoting = false;
+    private static Seq<Map> MapOptions = new Seq<>();
+    private static boolean IsVoting = false;
     public static void init(){
         mapVoteMenuId = Menus.registerMenu((player, selection) -> {
-            if (selection == -1 || !isvoting) return;
+            if (selection == -1 || !IsVoting) return;
             votes.put(selection, votes.get(selection, 0) + 1);
-            player.sendMessage("Voted for " + mapOptions.get(selection).name());
+            player.sendMessage("Voted for " + MapOptions.get(selection).name());
         });
     }
     public static void start(){
-        if(isvoting) return;
-        isvoting = true;
+        if(IsVoting) return;
+        IsVoting = true;
         votes.clear();
-        mapOptions.clear();
+        MapOptions.clear();
         Seq<Map> allMaps = Vars.maps.customMaps().shuffle();
         for (int i = 0; i < Math.min(3, allMaps.size); i++){
-            mapOptions.add(allMaps.get(i));
+            MapOptions.add(allMaps.get(i));
         }
-        String[][] buttons = new String[mapOptions.size][1];
-        for (int i = 0; i < mapOptions.size; i++){
-            buttons[i][0] = mapOptions.get(i).name();
+        String[][] buttons = new String[MapOptions.size][1];
+        for (int i = 0; i < MapOptions.size; i++){
+            buttons[i][0] = MapOptions.get(i).name();
         }
         Call.menu(mapVoteMenuId, "Round is over",  "Choose next map: ", buttons);
         Timer.schedule(() -> finish(), 20);
     }
 
     private static void finish(){
-        isvoting = false;
+        IsVoting = false;
         int winnerindex = 0;
         int maxvotes = -1;
-        for (int i = 0; i < mapOptions.size; i++){
+        for (int i = 0; i < MapOptions.size; i++){
             int count = votes.get(i, 0);
             if (count > maxvotes){
                 maxvotes = count;
@@ -52,7 +52,7 @@ public class MapVote {
             }
         }
 
-        Map winner = mapOptions.get(winnerindex);
+        Map winner = MapOptions.get(winnerindex);
         Timer.schedule(() -> {
             Vars.maps.setNextMapOverride(winner);
             Events.fire(new EventType.GameOverEvent(Team.all[0]));
