@@ -272,10 +272,14 @@ public class Main extends Plugin {
     // destroy all the buildings of a team and send them to derelict
     public void kill_team(Team team) {
         team.data().destroyToDerelict();
-        Groups.player.each(p -> p.team() == team, p -> {
-            p.team(Team.all[0]);
-            p.unit().kill();
-        });
+        if (team.data().players != null){
+            Groups.player.each(p -> p.team() == team, p -> {
+                if (p != null) {
+                    p.team(Team.all[0]);
+                    p.unit().kill();
+                }
+            });
+        }
 
     }
 }
