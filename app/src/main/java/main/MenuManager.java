@@ -39,7 +39,7 @@ public class MenuManager {
                 showLeaderSetMenu(player);
             }
             if (selection == 5) {
-                return;
+
             }
 
         });
