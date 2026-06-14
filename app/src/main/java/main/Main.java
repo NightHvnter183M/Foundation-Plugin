@@ -200,7 +200,7 @@ public class Main extends Plugin {
                 tile.build.kill();
                 if (playerTeam.cores().isEmpty()) {
                     kill_team(playerTeam);
-                    player.unit().kill();
+                    if(player.unit() != null) player.unit().kill();
                     Groups.player.each(p -> p.team() == playerTeam, p -> {
                         p.team(Team.all[0]);
                         if (Cache.teams_Info.containsKey(playerTeam)) {
@@ -214,6 +214,7 @@ public class Main extends Plugin {
         handler.<Player>register("spectate", "Destroys all your buildings and sends you to speactators",
                 (args, player) -> {
                     Team playerTeam = player.team();
+                    System.out.println("player " + player + " used command spectate");
                     boolean isLeader = false;
                     // Checking if the player is the leader of the team
                     if (player.team() != Team.all[0]) {
@@ -226,7 +227,7 @@ public class Main extends Plugin {
                         if (isLeader) {
                             kill_team(player.team());
                             player.team(Team.all[0]);
-                            player.unit().kill();
+                            if (player.unit() != null) player.unit().kill();
                             Groups.player.each(p -> p.team() == playerTeam, p -> {
                                 p.team(Team.all[0]);
                                 p.unit().kill();
@@ -236,7 +237,7 @@ public class Main extends Plugin {
                             }
                         } else {
                             player.team(Team.all[0]);
-                            player.unit().kill();
+                            if (player.unit() != null ) player.unit().kill();
                         }
                     }
                 });
@@ -274,9 +275,10 @@ public class Main extends Plugin {
         team.data().destroyToDerelict();
         if (team.data().players != null){
             Groups.player.each(p -> p.team() == team, p -> {
-                if (p != null) {
-                    p.team(Team.all[0]);
-                    p.unit().kill();
+                p.team(Team.all[0]);
+                var unit = p.unit();
+                if (unit != null) {
+                    unit.kill();
                 }
             });
         }
