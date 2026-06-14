@@ -31,6 +31,16 @@ public class MenuManager {
             if (selection == 3) {
                 showDenyMenu(player);
             }
+            if (selection == 4) {
+                if (!isLeader(player)) {
+                    player.sendMessage("[scarlet]Only the current leader can transfer leadership.");
+                    return;
+                }
+                showLeaderSetMenu(player);
+            }
+            if (selection == 5) {
+                return;
+            }
 
         });
 
@@ -45,30 +55,55 @@ public class MenuManager {
         });
 
         Cache.acceptMenuId = Menus.registerMenu((player, selection) -> {
-            if (selection == -1)
-                return;
+            if (selection == -1) return;
+
             Seq<Player> requesters = getRequesters(player);
             Player found = requesters.get(selection);
-            Team oldteam = found.team();
+
+            Team oldTeam = found.team();
+            boolean wasLeader = isLeader(found);
             found.team(player.team());
-            Cache.teamRequests.remove(found.uuid());
-            player.sendMessage("[#32CD32]You accepted " + found.name);
-            found.sendMessage("[#32CD32]Your team join request has been accepted by " + player.name);
-            Log.info(oldteam.data().players.size);
-            if (oldteam.data().players.size <= 1){
-                kill_team(oldteam);
+            if (found.unit() != null) {
                 found.unit().kill();
             }
-            else if(isLeader(found)){
-                Cache.teams_Info.get(oldteam).leaderUuid = "";
-                if (Cache.teams_Info.containsKey(oldteam)) {
-                    Player newleader = oldteam.data().players.random();
-                    Cache.teams_Info.get(oldteam).leaderUuid = newleader.uuid();
-                    TeamInfo info = Cache.teams_Info.get(oldteam);
-                    info.leaderUuid = newleader.uuid();
+
+            Cache.teamRequests.remove(found.uuid());
+
+            player.sendMessage("[#32CD32]You accepted " + found.name);
+            found.sendMessage("[#32CD32]Your team join request has been accepted by " + player.name);
+            if (wasLeader) {
+
+                TeamInfo oldInfo = Cache.teams_Info.get(oldTeam);
+
+                if (oldInfo != null) {
+                    oldInfo.leaderUuid = "";
+                }
+
+                Seq<Player> remainingPlayers = new Seq<>();
+
+                Groups.player.each(p -> {
+                    if (p.team() == oldTeam) {
+                        remainingPlayers.add(p);
+                    }
+                });
+
+                if (remainingPlayers.isEmpty()) {
+                    kill_team(oldTeam);
+                    if (Cache.teams_Info.containsKey(oldTeam)) {
+                        Cache.teams_Info.get(oldTeam).leaderUuid = "";
+                    }
+                    Log.info("Team @ disbanded because its leader left.", oldTeam);
+                } else {
+                    Player newLeader = remainingPlayers.random();
+                    if (oldInfo != null) {
+                        oldInfo.leaderUuid = newLeader.uuid();
+                    }
+                    Log.info("New leader of @ is @", oldTeam, newLeader.name);
+                    newLeader.sendMessage("[gold]You are now the team leader.");
                 }
             }
         });
+
         Cache.denyMenuId = Menus.registerMenu((player, selection) -> {
             if (selection == -1)
                 return;
@@ -87,12 +122,27 @@ public class MenuManager {
                 Player target = teammates.get(selection);
 
                 target.team(Team.all[0]);
-                if (target.unit() != null)
-                    target.unit().kill();
+                if (target.unit() != null) target.unit().kill();
                 target.team(Team.all[0]);
                 player.sendMessage("[#8B0000]You have kicked " + target.name);
                 target.sendMessage("[#8B0000]You have been kicked from the team.");
             }
+        });
+
+        Cache.SetLeaderMenuId = Menus.registerMenu((player, selection) -> {
+            if (selection == -1)
+                return;
+            Seq<Player> teammates = getTeammates(player);
+            if (selection < teammates.size) {
+                Player target = teammates.get(selection);
+                TeamInfo info = Cache.teams_Info.get(player.team());
+                if (info != null) {
+                    info.leaderUuid = target.uuid();
+                    player.sendMessage("[orange]You transferred leadership to " + target.name);
+                    target.sendMessage("[green]You are now the team leader.");
+                }
+            }
+
         });
 
         Cache.WelcomeMenuId = Menus.registerMenu((player, selection) ->{
@@ -106,7 +156,7 @@ public class MenuManager {
         team.data().destroyToDerelict();
         Groups.player.each(p -> p.team() == team, p -> {
             p.team(Team.all[0]);
-            p.unit().kill();
+            if (p.unit() != null) p.unit().kill();
         });
 
     }
@@ -127,16 +177,15 @@ public class MenuManager {
     private Seq<Player> getOthers(Player p) {
         Seq<Player> list = new Seq<>();
         Groups.player.each(other -> {
-            if (other != p && other.team() != Team.all[0]) {
-                if (p.team() != Team.all[0]) {
-                    TeamInfo info = Cache.teams_Info.get(p.team());
-                    if (info != null && info.leaderUuid != null) {
-                        if (info.leaderUuid.equals(p.uuid())) {
-                            list.add(other);
-                        }
-                    }
-                }
+            if (other == p) return;
 
+            TeamInfo info = Cache.teams_Info.get(other.team());
+
+            if (info != null &&
+                    info.leaderUuid != null &&
+                    info.leaderUuid.equals(other.uuid())) {
+
+                list.add(other);
             }
         });
         return list;
@@ -164,6 +213,7 @@ public class MenuManager {
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
         Call.menu(p.con, Cache.acceptMenuId, "Accept team request", "Choose a player:", buttons);
+
     }
 
     private void showDenyMenu(Player p) {
@@ -194,6 +244,18 @@ public class MenuManager {
         Seq<Player> list = new Seq<>();
         Groups.player.each(other -> other.team() == p.team() && other != p, list::add);
         return list;
+    }
+
+    private void showLeaderSetMenu(Player p) {
+        Seq<Player> players = getTeammates(p);
+        if (players.isEmpty()) {
+            p.sendMessage("[#8B0000]No teammates available.");
+            return;
+        }
+        String[][] buttons = new String[players.size][1];
+        for (int i = 0; i < players.size; i++)
+            buttons[i][0] = players.get(i).name;
+        Call.menu(p.con, Cache.SetLeaderMenuId, "Set leader of your team",  "Choose a player to set leader:", buttons);
     }
 
 }

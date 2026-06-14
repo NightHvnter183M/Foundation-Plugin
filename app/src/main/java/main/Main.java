@@ -230,7 +230,7 @@ public class Main extends Plugin {
                             if (player.unit() != null) player.unit().kill();
                             Groups.player.each(p -> p.team() == playerTeam, p -> {
                                 p.team(Team.all[0]);
-                                p.unit().kill();
+                                if (p.unit() != null) p.unit().kill();
                             });
                             if (Cache.teams_Info.containsKey(playerTeam)) {
                                 Cache.teams_Info.get(playerTeam).leaderUuid = "";
@@ -247,7 +247,9 @@ public class Main extends Plugin {
                     { "[green]Join" },
                     { "[blue]Accept" },
                     { "[orange]Kick" },
-                    { "[red]Deny" }
+                    { "[red]Deny" },
+                    {"[brown]Set leader"},
+                    { "Close"}
             };
             // Open the team management menu for the player
             Call.menu(player.con,  Cache.teamMenuId, "[accent]Team Menu", "Choose an action:", buttons);
