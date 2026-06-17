@@ -104,7 +104,7 @@ public class Main extends Plugin {
                     return;
                 }
                 boolean close = false;
-                float mindist = 100f;
+                float mindist = 200f;
                 for (var build : Groups.build) {
                     if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
                         if (tile.dst(build.tile) < mindist * 5) {
@@ -133,10 +133,37 @@ public class Main extends Plugin {
         });
         // Replacing vault with core sharped
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
+
+            boolean close = false;
+            float mindist = 200f;
+            for (var build : Groups.build) {
+                if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
+                    if (event.tile.dst(build.tile) < mindist * 5) {
+                        close = true;
+                        break;
+                    }
+                }
+            }
+            boolean far = false;
+            float maxdist = 800f;
+            for (var build : Groups.build) {
+                if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
+                    if (event.tile.dst(build.tile) > maxdist * 5) {
+                        far = true;
+                        break;
+                    }
+                }
+            }
             if (event.breaking || event.tile.block() != Blocks.vault)
                 return;
             Team builderTeam = event.team;
             Tile tile = event.tile;
+            if (close){
+                return;
+            }
+            if (far) {
+                return;
+            }
             Time.run(1f, () -> tile.setNet(Blocks.coreShard, builderTeam, 0));
         });
 
@@ -165,10 +192,11 @@ public class Main extends Plugin {
             Vars.state.rules.waves = false;
             Vars.state.rules.planet = Planets.sun;
             Vars.state.rules.defaultTeam = Team.all[0];
-            Vars.state.rules.buildCostMultiplier = 0.75f;
+            Vars.state.rules.unitCostMultiplier = 0.75f;
             Vars.state.rules.unitDamageMultiplier = 1.414f;
             Vars.state.rules.unitBuildSpeedMultiplier = 0.33f;
             Vars.state.rules.unitHealthMultiplier = 1.414f;
+            Vars.state.rules.unitPayloadUpdate = true;
             Call.setRules(Vars.state.rules);
             Log.info("New game started. Rules applied.");
             Time.run(2f, () -> {
