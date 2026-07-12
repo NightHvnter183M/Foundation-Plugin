@@ -33,7 +33,7 @@ public class Restart {
             return;
         }
         if(Cache.restartVotes.contains(player.uuid())){
-            player.sendMessage("[#F08080]You have already voted for restart!");
+            player.sendMessage(Localisation.local(player, "restartVoteAgain"));
             return;
         }
         Cache.restartVotes.add(player.uuid());

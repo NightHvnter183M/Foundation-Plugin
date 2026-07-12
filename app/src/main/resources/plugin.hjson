@@ -4,7 +4,7 @@
   "author": "NightHvnter183M",
   "main": "main.Main",
   "description": "base plugin for Foundation Pvp server",
-  "version": 17.06.26,
+  "version": 1.1,
   "minGameVersion": "145.2",
   "dependencies": []
 }

@@ -20,7 +20,7 @@ public class MapVote {
         mapVoteMenuId = Menus.registerMenu((player, selection) -> {
             if (selection == -1 || !IsVoting) return;
             votes.put(selection, votes.get(selection, 0) + 1);
-            player.sendMessage("Voted for " + MapOptions.get(selection).name());
+            player.sendMessage(Localisation.local(player, "voteRestartMessage") + " " + MapOptions.get(selection).name());
         });
     }
     public static void start(){
@@ -36,7 +36,9 @@ public class MapVote {
         for (int i = 0; i < MapOptions.size; i++){
             buttons[i][0] = MapOptions.get(i).name();
         }
-        Call.menu(mapVoteMenuId, "Round is over",  "Choose next map: ", buttons);
+        Groups.player.each(player -> {
+            Call.menu(player.con, mapVoteMenuId, Localisation.local(player, "roundOverTitle"), Localisation.local(player, "roundOverMessage"), buttons);
+        });
         Timer.schedule(() -> finish(), 20);
     }
 

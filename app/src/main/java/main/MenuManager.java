@@ -19,7 +19,7 @@ public class MenuManager {
                 showJoinMenu(player);
             }
             if (!isLeader(player)) {
-                player.sendMessage("[#FFC0CB]Only team leaders can manage their teams.");
+                player.sendMessage(Localisation.local(player, "teamMenuLeaderException"));
                 return;
             }
             if (selection == 1) {
@@ -33,7 +33,7 @@ public class MenuManager {
             }
             if (selection == 4) {
                 if (!isLeader(player)) {
-                    player.sendMessage("[scarlet]Only the current leader can transfer leadership.");
+                    player.sendMessage(Localisation.local(player, "teamMenuLeaderException"));
                     return;
                 }
                 showLeaderSetMenu(player);
@@ -50,8 +50,8 @@ public class MenuManager {
             Seq<Player> otherPlayers = getOthers(player);
             Player target = otherPlayers.get(selection);
             Cache.teamRequests.put(player.uuid(), target.uuid());
-            player.sendMessage("[#F4A460]You have sent a team join request to " + target.name);
-            target.sendMessage(player.name + " [#F4A460]has requested to join your team.");
+            player.sendMessage(Localisation.local(player, "joinMenuSentRequest") + " " + target.name);
+            target.sendMessage(player.name + " " + Localisation.local(target, "joinMenuGotRequest"));
         });
 
         Cache.acceptMenuId = Menus.registerMenu((player, selection) -> {
@@ -69,8 +69,8 @@ public class MenuManager {
 
             Cache.teamRequests.remove(found.uuid());
 
-            player.sendMessage("[#32CD32]You accepted " + found.name);
-            found.sendMessage("[#32CD32]Your team join request has been accepted by " + player.name);
+            player.sendMessage(Localisation.local(player, "teamRequestsAccept")  + " " + found.name);
+            found.sendMessage( Localisation.local(found, "teamRequestsAccepted")  + " " + player.name);
             if (wasLeader) {
 
                 TeamInfo oldInfo = Cache.teams_Info.get(oldTeam);
@@ -92,14 +92,12 @@ public class MenuManager {
                     if (Cache.teams_Info.containsKey(oldTeam)) {
                         Cache.teams_Info.get(oldTeam).leaderUuid = "";
                     }
-                    Log.info("Team @ disbanded because its leader left.", oldTeam);
                 } else {
                     Player newLeader = remainingPlayers.random();
                     if (oldInfo != null) {
                         oldInfo.leaderUuid = newLeader.uuid();
                     }
-                    Log.info("New leader of @ is @", oldTeam, newLeader.name);
-                    newLeader.sendMessage("[gold]You are now the team leader.");
+                    newLeader.sendMessage(Localisation.local(player, "teamLeaderLeftMessage"));
                 }
             }
         });
@@ -111,8 +109,8 @@ public class MenuManager {
             Player found = requesters.get(selection);
 
             Cache.teamRequests.remove(found.uuid());
-            player.sendMessage("[#DC143C]You have denied the request from " + found.name);
-            found.sendMessage("[#DC143C]Your team join request has been denied.");
+            player.sendMessage(Localisation.local(player, "teamRequestsDeny") + found.name);
+            found.sendMessage(Localisation.local(found, "teamRequestsDenied"));
         });
         Cache.kickMenuId = Menus.registerMenu((player, selection) -> {
             if (selection == -1)
@@ -124,8 +122,8 @@ public class MenuManager {
                 target.team(Team.all[0]);
                 if (target.unit() != null) target.unit().kill();
                 target.team(Team.all[0]);
-                player.sendMessage("[#8B0000]You have kicked " + target.name);
-                target.sendMessage("[#8B0000]You have been kicked from the team.");
+                player.sendMessage(Localisation.local(player, "kickMenuKick") + " " + target.name);
+                target.sendMessage(Localisation.local(target, "kickMenuKicked"));
             }
         });
 
@@ -138,8 +136,8 @@ public class MenuManager {
                 TeamInfo info = Cache.teams_Info.get(player.team());
                 if (info != null) {
                     info.leaderUuid = target.uuid();
-                    player.sendMessage("[orange]You transferred leadership to " + target.name);
-                    target.sendMessage("[green]You are now the team leader.");
+                    player.sendMessage(Localisation.local(player, "SetLeaderMenuTransfer") + " " + target.name);
+                    target.sendMessage(Localisation.local(target, "SetLeaderMenuTransferred"));
                 }
             }
 
@@ -147,7 +145,7 @@ public class MenuManager {
 
         Cache.WelcomeMenuId = Menus.registerMenu((player, selection) ->{
             if(selection == 0){
-                Call.openURI("https://discord.gg/GMQRKUn8W8");
+                Call.openURI(player.con, "https://discord.gg/GMQRKUn8W8");
             }
         });
     }
@@ -171,7 +169,7 @@ public class MenuManager {
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.joinMenuId, "Join to", "Choose a leader", buttons);
+        Call.menu(p.con, Cache.joinMenuId, Localisation.local(p, "joinMenuTitle"), Localisation.local(p, "joinMenuMessage"), buttons);
     }
 
     private Seq<Player> getOthers(Player p) {
@@ -206,38 +204,38 @@ public class MenuManager {
     private void showAcceptMenu(Player p) {
         Seq<Player> players = getRequesters(p);
         if (players.isEmpty()) {
-            p.sendMessage("[#F08080]No requests available]");
+            p.sendMessage(Localisation.local(p, "MenuNoRequest"));
             return;
         }
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.acceptMenuId, "Accept team request", "Choose a player:", buttons);
+        Call.menu(p.con, Cache.acceptMenuId, Localisation.local(p, "acceptMenuTitle"), Localisation.local(p, "acceptMenuMessage"), buttons);
 
     }
 
     private void showDenyMenu(Player p) {
         Seq<Player> players = getRequesters(p);
         if (players.isEmpty()) {
-            p.sendMessage("[#F08080]No requests available.");
+            p.sendMessage(Localisation.local(p, "MenuNoRequest"));
             return;
         }
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.denyMenuId, "Deny team request", "Choose a player to deny:", buttons);
+        Call.menu(p.con, Cache.denyMenuId, Localisation.local(p, "denyMenuTitle"), Localisation.local(p, "denyMenuMessage"), buttons);
     }
 
     private void showKickMenu(Player p) {
         Seq<Player> players = getTeammates(p);
         if (players.isEmpty()) {
-            p.sendMessage("[#8B0000]No teammates available.");
+            p.sendMessage(Localisation.local(p, "teammatesMenuNoRequest"));
             return;
         }
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.kickMenuId, "Kick player from team", "Choose a player to kick:", buttons);
+        Call.menu(p.con, Cache.kickMenuId, Localisation.local(p, "kickMenuTitle"), Localisation.local(p, "kickMenuMessage"), buttons);
     }
 
     private Seq<Player> getTeammates(Player p) {
@@ -249,13 +247,13 @@ public class MenuManager {
     private void showLeaderSetMenu(Player p) {
         Seq<Player> players = getTeammates(p);
         if (players.isEmpty()) {
-            p.sendMessage("[#8B0000]No teammates available.");
+            p.sendMessage(Localisation.local(p, "teammatesMenuNoRequest"));
             return;
         }
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
             buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.SetLeaderMenuId, "Set leader of your team",  "Choose a player to set leader:", buttons);
+        Call.menu(p.con, Cache.SetLeaderMenuId, Localisation.local(p, "leaderMenuTitle"), Localisation.local(p, "leaderMenuMessage"), buttons);
     }
 
 }

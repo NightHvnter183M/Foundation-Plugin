@@ -127,7 +127,7 @@ public class Main extends Plugin {
                         info.leaderUuid = pla.uuid();
                     }
                 } else {
-                    pla.sendMessage("[#8B0000]Too close to another core");
+                    pla.sendMessage(Localisation.local(pla, "tooCloseCoreWarning"));
                 }
             }
         });
@@ -135,21 +135,11 @@ public class Main extends Plugin {
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
 
             boolean close = false;
-            float mindist = 200f;
+            float mindist = 150f;
             for (var build : Groups.build) {
-                if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
+                if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild & build.team() != event.team) {
                     if (event.tile.dst(build.tile) < mindist * 5) {
                         close = true;
-                        break;
-                    }
-                }
-            }
-            boolean far = false;
-            float maxdist = 800f;
-            for (var build : Groups.build) {
-                if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
-                    if (event.tile.dst(build.tile) > maxdist * 5) {
-                        far = true;
                         break;
                     }
                 }
@@ -159,9 +149,6 @@ public class Main extends Plugin {
             Team builderTeam = event.team;
             Tile tile = event.tile;
             if (close){
-                return;
-            }
-            if (far) {
                 return;
             }
             Time.run(1f, () -> tile.setNet(Blocks.coreShard, builderTeam, 0));
@@ -216,12 +203,12 @@ public class Main extends Plugin {
 
     public void registerClientCommands(CommandHandler handler) {
         // Register commands for client here
-        handler.<Player>register("restart", "Restarts the game", (args, player) -> {
+        handler.<Player>register("restart", "Restart the game/Перезапустить игру", (args, player) -> {
             if(Groups.player.size() == 1) Restart.DoingRestart();
             else Restart.AddVotes(player);
 
         });
-        handler.<Player>register("destroy", "Destroys your building", (args, player) -> {
+        handler.<Player>register("destroy", "Destroy your building/Уничтожить строение", (args, player) -> {
             Tile tile = player.tileOn();
             Team playerTeam = player.team();
             if (tile.build != null && tile.build.team == player.team()) {
@@ -239,10 +226,9 @@ public class Main extends Plugin {
             }
         });
 
-        handler.<Player>register("spectate", "Destroys all your buildings and sends you to speactators",
+        handler.<Player>register("spectate", "Destroys all your buildings and sends you to speactators/Уничтожает все постройки команды и переводит в наблюдателей",
                 (args, player) -> {
                     Team playerTeam = player.team();
-                    System.out.println("player " + player + " used command spectate");
                     boolean isLeader = false;
                     // Checking if the player is the leader of the team
                     if (player.team() != Team.all[0]) {
@@ -270,17 +256,17 @@ public class Main extends Plugin {
                     }
                 });
 
-        handler.<Player>register("team", "Team managment", (args, player) -> {
+        handler.<Player>register("team", "Team managment/Управление командой", (args, player) -> {
             String[][] buttons = {
-                    { "[green]Join" },
-                    { "[blue]Accept" },
-                    { "[orange]Kick" },
-                    { "[red]Deny" },
-                    {"[brown]Set leader"},
-                    { "Close"}
+                    { Localisation.local(player, "teamMenuJoinButton") },
+                    { Localisation.local(player, "teamMenuAcceptButton") },
+                    { Localisation.local(player, "teamMenuKickButton") },
+                    { Localisation.local(player, "teamMenuDenyButton") },
+                    { Localisation.local(player, "teamMenuLeadButton") },
+                    { Localisation.local(player, "menuCloseButton") },
             };
             // Open the team management menu for the player
-            Call.menu(player.con,  Cache.teamMenuId, "[accent]Team Menu", "Choose an action:", buttons);
+            Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
         });
     }
 
