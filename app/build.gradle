@@ -46,3 +46,12 @@ tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 }
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+
+tasks.withType(ProcessResources) {
+    filteringCharset = 'UTF-8'
+    inputs.property("version", project.version)
+}
