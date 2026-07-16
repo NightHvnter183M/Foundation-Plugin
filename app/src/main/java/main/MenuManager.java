@@ -164,7 +164,7 @@ public class MenuManager {
         return info != null && info.leaderUuid.equals(p.uuid());
     }
 
-    private void showJoinMenu(Player p) {
+    public void showJoinMenu(Player p) {
         Seq<Player> players = getOthers(p);
         String[][] buttons = new String[players.size][1];
         for (int i = 0; i < players.size; i++)
@@ -201,7 +201,7 @@ public class MenuManager {
         return list;
     }
 
-    private void showAcceptMenu(Player p) {
+    public void showAcceptMenu(Player p) {
         Seq<Player> players = getRequesters(p);
         if (players.isEmpty()) {
             p.sendMessage(Localisation.local(p, "MenuNoRequest"));
@@ -214,7 +214,7 @@ public class MenuManager {
 
     }
 
-    private void showDenyMenu(Player p) {
+    public void showDenyMenu(Player p) {
         Seq<Player> players = getRequesters(p);
         if (players.isEmpty()) {
             p.sendMessage(Localisation.local(p, "MenuNoRequest"));

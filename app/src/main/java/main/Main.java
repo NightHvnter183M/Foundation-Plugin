@@ -268,6 +268,21 @@ public class Main extends Plugin {
             // Open the team management menu for the player
             Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
         });
+
+        handler.register("join", "Join other command/Присоедениться к другой команде",  (args, player) -> {
+            MenuManager menuManager = new MenuManager();
+            menuManager.showJoinMenu((Player) player);
+        });
+
+        handler.register("accept", "accept a player to foin your team/Принять игрока в команду",  (args, player) -> {
+            MenuManager menuManager = new MenuManager();
+            menuManager.showAcceptMenu((Player) player);
+        });
+
+        handler.register("deny", "deny a player/Отклонить запрос на вступление в команду",   (args, player) -> {
+            MenuManager menuManager = new MenuManager();
+            menuManager.showDenyMenu((Player) player);
+        });
     }
 
     public void registerServerCommands(CommandHandler handler) {
