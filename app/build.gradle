@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'main'
-version = '1.2'
+version = '1.22'
 
 repositories {
     // Use Maven Central for resolving dependencies.

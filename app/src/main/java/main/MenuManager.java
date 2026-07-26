@@ -18,17 +18,25 @@ public class MenuManager {
             if (selection == 0) {
                 showJoinMenu(player);
             }
-            if (!isLeader(player)) {
-                player.sendMessage(Localisation.local(player, "teamMenuLeaderException"));
-                return;
-            }
             if (selection == 1) {
+                if (!isLeader(player)) {
+                    player.sendMessage(Localisation.local(player, "teamMenuLeaderException"));
+                    return;
+                }
                 showAcceptMenu(player);
             }
             if (selection == 2) {
+                if (!isLeader(player)) {
+                    player.sendMessage(Localisation.local(player, "teamMenuLeaderException"));
+                    return;
+                }
                 showKickMenu(player);
             }
             if (selection == 3) {
+                if (!isLeader(player)) {
+                    player.sendMessage(Localisation.local(player, "teamMenuLeaderException"));
+                    return;
+                }
                 showDenyMenu(player);
             }
             if (selection == 4) {

@@ -95,6 +95,14 @@ public class Main extends Plugin {
             Cache.playerTeams.put(pl.uuid(), pl.team());
             teamRequests.remove(event.player.uuid());
         });
+
+        Events.on(EventType.UnitSpawnEvent.class, event -> {
+            if (event.unit != null && event.unit.team == Team.crux) {
+                event.unit.controller(new DynamicCruxAi.dynamicCruxAI());
+            }
+        });
+
+
         // When a player clicks on a tile to create a core and command
         Events.on(EventType.TapEvent.class, event -> {
             Player pla = event.player;
@@ -176,7 +184,11 @@ public class Main extends Plugin {
             Vars.state.rules.pvp = true;
             Vars.state.rules.pvpAutoPause = false;
             Vars.state.rules.canGameOver = false;
-            Vars.state.rules.waves = false;
+            Vars.state.rules.waves = true;
+            Vars.state.rules.waveTimer = true;
+            Vars.state.rules.waveTeam = Team.crux;
+            Vars.state.rules.randomWaveAI = true;
+            Vars.state.rules.unitCap = 100;
             Vars.state.rules.planet = Planets.sun;
             Vars.state.rules.defaultTeam = Team.all[0];
             Vars.state.rules.unitCostMultiplier = 0.75f;
@@ -293,7 +305,7 @@ public class Main extends Plugin {
     // creating a new team
     public Team takeNewTeam() {
         for (Team team : Team.all) {
-            if (!team.active() && team.id > 5) {
+            if (!team.active() && team.id > 6) {
                 return team;
             }
         }
