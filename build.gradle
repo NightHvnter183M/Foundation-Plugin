@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+
+group = 'main'
+version = '1.3-RELEASE'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository' }
+    maven { url 'https://www.jitpack.io' }
+}
+
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    def mindustryVersion = 'v159.7'
+    compileOnly("com.github.Anuken.Mindustry:core:$mindustryVersion") {
+        exclude group: 'com.github.Anuken.Arc'
+    }
+    compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
+    implementation "org.xerial:sqlite-jdbc:3.46.0.0"
+}
+
+shadowJar {
+    archiveClassifier.set('')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude "META-INF/*.SF"
+    exclude "META-INF/*.DSA"
+    exclude "META-INF/*.RSA"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

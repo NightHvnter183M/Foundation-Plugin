@@ -9,7 +9,7 @@
 #
 #      https://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
+# Unless required by Foundationlicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
@@ -57,7 +57,7 @@
 #       Darwin, MinGW, and NonStop.
 #
 #   (3) This script is generated from the Groovy template
-#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
+#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-Foundationlication/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
 #       within the Gradle project.
 #
 #       You can find Gradle at https://github.com/gradle/gradle/.
@@ -67,18 +67,18 @@
 # Attempt to set APP_HOME
 
 # Resolve links: $0 may be a link
-app_path=$0
+Foundation_path=$0
 
 # Need this for daisy-chained symlinks.
 while
-    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
-    [ -h "$app_path" ]
+    APP_HOME=${Foundation_path%"${Foundation_path##*/}"}  # leaves a trailing /; empty if no leading path
+    [ -h "$Foundation_path" ]
 do
-    ls=$( ls -ld "$app_path" )
+    ls=$( ls -ld "$Foundation_path" )
     link=${ls#*' -> '}
     case $link in             #(
-      /*)   app_path=$link ;; #(
-      *)    app_path=$APP_HOME$link ;;
+      /*)   Foundation_path=$link ;; #(
+      *)    Foundation_path=$APP_HOME$link ;;
     esac
 done
 
@@ -164,7 +164,7 @@ fi
 #   * args from the command line
 #   * the main class name
 #   * -classpath
-#   * -D...appname settings
+#   * -D...Foundationname settings
 #   * --module-path (only if needed)
 #   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
 
@@ -209,8 +209,8 @@ DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 #     treated as '${Hostname}' itself on the command line.
 
 set -- \
-        "-Dorg.gradle.appname=$APP_BASE_NAME" \
-        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
+        "-Dorg.gradle.Foundationname=$APP_BASE_NAME" \
+        -jar "$APP_HOME/gradle/wrFoundationer/gradle-wrFoundationer.jar" \
         "$@"
 
 # Stop when "xargs" is not available.

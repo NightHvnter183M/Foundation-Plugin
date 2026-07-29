@@ -7,7 +7,7 @@ import mindustry.game.Team;
 
 public class Cache {
 
-    public static int teamMenuId, joinMenuId, acceptMenuId, denyMenuId, kickMenuId, WelcomeMenuId, mapVoteMenuId, SetLeaderMenuId;
+    public static int teamMenuId, joinMenuId, acceptMenuId, denyMenuId, kickMenuId, WelcomeMenuId, mapVoteMenuId, SetLeaderMenuId, LeaderBoardMenuId;
     public static ObjectMap<String, Team> playerTeams = new ObjectMap<>();
     public static ObjectMap<Team, TeamInfo> teams_Info = new ObjectMap<>();
     public static ObjectMap<String, String> teamRequests = new ObjectMap<>();

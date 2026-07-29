@@ -1,5 +1,6 @@
 package main;
 
+import mindustry.core.GameState;
 import mindustry.mod.Plugin;
 import mindustry.net.Administration;
 import mindustry.game.EventType;
@@ -21,6 +22,8 @@ import static main.Resources.*;
 
 public class Main extends Plugin {
 
+    private Boolean isPause = false;
+
     @Override
     public void init() {
         // Initialization code here
@@ -35,17 +38,25 @@ public class Main extends Plugin {
         }
         MapVote.init();
         new MenuManager().init();
+        TeamDestroyTracker.init();
+        LeaderBoardManager.init();
         // setting up a timer to restart the game after maxTime seconds
         Time.runTask(0, new Runnable() {
             @Override
             public void run() {
                 Time.runTask(60f, this);
-                int minutes = maxTime / 60;
-                int seconds = maxTime % 60;
-                String timeDisplay = String.format("%02d:%02d", minutes, seconds);
+                int hours = maxTime / 3600;
+                int minutes = (maxTime % 3600) / 60;
+                int seconds = (maxTime % 3600) % 60;
+                String timeDisplay = """
+                                        [#5F9EA0]Foundation PvP
+        [white]Use /restart to vote or to start a voting of a restart
+                                    Time until end of round:
+                                            %02d:%02d:%02d
+        """.formatted(hours, minutes, seconds);
                 updateMOTD();
                 if (maxTime > 0) {
-                    Call.setHudText("Until round end:" + timeDisplay);
+                    Call.setHudText(timeDisplay);
                 } else {
                     Call.setHudText("The round is ending...");
                 }
@@ -86,14 +97,25 @@ public class Main extends Plugin {
                 pl.team(Team.all[0]); // default team for new players
             }
             Call.menu(pl.con, Cache.WelcomeMenuId, "[#008B8B]Foundation PvP", welcomeText, Resources.welcomeButtons);
+            //unpausing server if it was paused
+            if (isPause || Vars.state.isPaused()) {
+                Vars.state.set(GameState.State.playing);
+                isPause = false;
+                Log.info("server is unpaused");
+            }
 
         });
         // When a player leaves the server
         Events.on(EventType.PlayerLeave.class, event -> {
-
             Player pl = event.player;
             Cache.playerTeams.put(pl.uuid(), pl.team());
             teamRequests.remove(event.player.uuid());
+            //pausing server
+            if(Groups.player.size() == 1) {
+                Vars.state.set(GameState.State.paused);
+                isPause = true;
+                Log.info("server is paused");
+            }
         });
 
         Events.on(EventType.UnitSpawnEvent.class, event -> {
@@ -161,40 +183,20 @@ public class Main extends Plugin {
             }
             Time.run(1f, () -> tile.setNet(Blocks.coreShard, builderTeam, 0));
         });
-
-        Events.on(EventType.BlockDestroyEvent.class, event -> {
-            Team team = event.tile.team();
-            if (event.tile.block() instanceof CoreBlock && team != Team.all[0]) {
-                Time.run(10f, () -> {
-                    if (team.cores().isEmpty()) {
-                        kill_team(team);
-                        Groups.player.each(p -> p.team() == team, p -> {
-                            p.team(Team.all[0]);
-                            if (Cache.teams_Info.containsKey(team)) {
-                                Cache.teams_Info.get(team).leaderUuid = "";
-                            }
-                        });
-                    }
-                });
-            }
-
-        });
+        //Killing team is now in teamDestroyTracker.java
         Events.on(EventType.PlayEvent.class, event -> {
             maxTime = 10800;
             Vars.state.rules.pvp = true;
             Vars.state.rules.pvpAutoPause = false;
             Vars.state.rules.canGameOver = false;
-            Vars.state.rules.waves = true;
-            Vars.state.rules.waveTimer = true;
             Vars.state.rules.waveTeam = Team.crux;
             Vars.state.rules.randomWaveAI = true;
-            Vars.state.rules.unitCap = 100;
+            Vars.state.rules.unitCap = 20;
             Vars.state.rules.planet = Planets.sun;
             Vars.state.rules.defaultTeam = Team.all[0];
             Vars.state.rules.unitCostMultiplier = 0.75f;
             Vars.state.rules.unitDamageMultiplier = 1.414f;
             Vars.state.rules.unitBuildSpeedMultiplier = 0.33f;
-            Vars.state.rules.unitHealthMultiplier = 1.414f;
             Vars.state.rules.unitPayloadUpdate = true;
             Call.setRules(Vars.state.rules);
             Log.info("New game started. Rules applied.");
@@ -202,6 +204,17 @@ public class Main extends Plugin {
                 Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
                 Groups.player.each(p -> p.team(Team.all[0]));
             });
+            if(isPause){
+                if(Groups.player.size() == 0){
+                    Vars.state.set(GameState.State.paused);
+                    Log.info("server is paused");
+                }
+                else{
+                    Vars.state.set(GameState.State.playing);
+                    isPause = false;
+                    Log.info("server is unpaused");
+                }
+            }
         });
     }
 
@@ -281,19 +294,37 @@ public class Main extends Plugin {
             Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
         });
 
-        handler.register("join", "Join other command/Присоедениться к другой команде",  (args, player) -> {
+        handler.<Player>register("join", "Join other command/Присоедениться к другой команде",  (args, player) -> {
             MenuManager menuManager = new MenuManager();
             menuManager.showJoinMenu((Player) player);
         });
 
-        handler.register("accept", "accept a player to foin your team/Принять игрока в команду",  (args, player) -> {
+        handler.<Player>register("accept", "accept a player to foin your team/Принять игрока в команду",  (args, player) -> {
             MenuManager menuManager = new MenuManager();
             menuManager.showAcceptMenu((Player) player);
         });
 
-        handler.register("deny", "deny a player/Отклонить запрос на вступление в команду",   (args, player) -> {
+        handler.<Player>register("deny", "deny a player/Отклонить запрос на вступление в команду",   (args, player) -> {
             MenuManager menuManager = new MenuManager();
             menuManager.showDenyMenu((Player) player);
+        });
+
+        handler.<Player>register("top", "Show a leaderboard/Показать лидерборд игроков",   (args, player) -> {
+            MenuManager menuManager = new MenuManager();
+            menuManager.showLeaderBoard((Player) player);
+        });
+
+        handler.<Player>register("rank", "Check leaderboard position/Узнать место в топе",   (args, player) -> {
+            LeaderBoardManager.Player stats = LeaderBoardManager.getPlayerStats(player.uuid());
+            if (stats == null) {
+                player.sendMessage(Localisation.local(player, "leaderboardPositionNotFound"));
+                return;
+            }
+            player.sendMessage(
+                    Localisation.local(player, "StatisticsMessage") + "\n" +
+                            Localisation.local(player, "StatisticsPosition") + " " + stats.position + "\n" +
+                            Localisation.local(player, "StatisticsPoints") + "" + stats.points
+            );
         });
     }
 

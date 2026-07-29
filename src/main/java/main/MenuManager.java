@@ -156,6 +156,15 @@ public class MenuManager {
                 Call.openURI(player.con, "https://discord.gg/GMQRKUn8W8");
             }
         });
+
+        Cache.LeaderBoardMenuId = Menus.registerMenu((player, selection) -> {
+            if(selection == 0){
+                showLeaderBoard(player);
+            }
+            if(selection == 1){
+                return;
+            }
+        });
     }
 
     public void kill_team(Team team) {
@@ -170,14 +179,6 @@ public class MenuManager {
     private boolean isLeader(Player p) {
         var info = Cache.teams_Info.get(p.team());
         return info != null && info.leaderUuid.equals(p.uuid());
-    }
-
-    public void showJoinMenu(Player p) {
-        Seq<Player> players = getOthers(p);
-        String[][] buttons = new String[players.size][1];
-        for (int i = 0; i < players.size; i++)
-            buttons[i][0] = players.get(i).name;
-        Call.menu(p.con, Cache.joinMenuId, Localisation.local(p, "joinMenuTitle"), Localisation.local(p, "joinMenuMessage"), buttons);
     }
 
     private Seq<Player> getOthers(Player p) {
@@ -264,4 +265,45 @@ public class MenuManager {
         Call.menu(p.con, Cache.SetLeaderMenuId, Localisation.local(p, "leaderMenuTitle"), Localisation.local(p, "leaderMenuMessage"), buttons);
     }
 
+    public void showJoinMenu(Player p) {
+        Seq<Player> players = getOthers(p);
+        String[][] buttons = new String[players.size][1];
+        for (int i = 0; i < players.size; i++)
+            buttons[i][0] = players.get(i).name;
+        Call.menu(p.con, Cache.joinMenuId, Localisation.local(p, "joinMenuTitle"), Localisation.local(p, "joinMenuMessage"), buttons);
+    }
+
+    public void showLeaderBoard(Player p) {
+        var topList = LeaderBoardManager.getTop(10);
+        StringBuilder sb = new StringBuilder();
+
+        if (topList.isEmpty()) {
+            sb.append(Localisation.local(p, "leaderboardEmptyMessage"));
+        } else {
+            for (LeaderBoardManager.Player data : topList) {
+                String rankColor = switch (data.position) {
+                    case 1 -> "[gold]";
+                    case 2 -> "[lightgray]";
+                    case 3 -> "[accent]";
+                    default -> "[white]";
+                };
+
+                sb.append(rankColor).append("#").append(data.position).append(" ")
+                        .append("[white]").append(data.name)
+                        .append(" [gray]- [green]").append(data.points).append(" points\n");
+            }
+        }
+        String[][] options = {
+                {Localisation.local(p, "leaderboardUpdate")},
+                {Localisation.local(p, "leaderboardClose")}
+        };
+
+        Call.menu(
+                p.con,
+                Cache.LeaderBoardMenuId,
+                Localisation.local(p, "leaderboardTitle"),
+                sb.toString(),
+                options
+        );
+    }
 }
