@@ -1,6 +1,8 @@
 package main;
 
+import mindustry.content.Items;
 import mindustry.core.GameState;
+import mindustry.entities.Units;
 import mindustry.mod.Plugin;
 import mindustry.net.Administration;
 import mindustry.game.EventType;
@@ -40,6 +42,9 @@ public class Main extends Plugin {
         new MenuManager().init();
         TeamDestroyTracker.init();
         LeaderBoardManager.init();
+        Blocks.coreShard.unitCapModifier = 1;
+        Blocks.coreFoundation.unitCapModifier = 2;
+        Blocks.coreNucleus.unitCapModifier = 4;
         // setting up a timer to restart the game after maxTime seconds
         Time.runTask(0, new Runnable() {
             @Override
@@ -48,26 +53,31 @@ public class Main extends Plugin {
                 int hours = maxTime / 3600;
                 int minutes = (maxTime % 3600) / 60;
                 int seconds = (maxTime % 3600) % 60;
-                String timeDisplay = """
-                                        [#5F9EA0]Foundation PvP
-        [white]Use /restart to vote or to start a voting of a restart
-                                    Time until end of round:
-                                            %02d:%02d:%02d
-        """.formatted(hours, minutes, seconds);
+                Groups.player.each(player -> {
+                    Team team = player.team();
+                    if(team == Team.all[0]){
+                        String timeDisplay = """
+                [#5F9EA0]Foundation PvP
+                [white]Time until end of round: %02d:%02d:%02d
+                """.formatted(hours, minutes, seconds);
+                        Call.setHudText(player.con, timeDisplay);
+                    }
+                    else {
+                        int unitCap = Units.getCap(team);
+                        String timeDisplay = """
+                                [#5F9EA0]Foundation PvP
+                                [white]Time until end of round: %02d:%02d:%02d
+                                Max units: %d
+                                """.formatted(hours, minutes, seconds, unitCap);
+                        Call.setHudText(player.con, timeDisplay);
+                    }
+                });
                 updateMOTD();
                 if (maxTime > 0) {
-                    Call.setHudText(timeDisplay);
-                } else {
-                    Call.setHudText("The round is ending...");
-                }
-
-                if (maxTime > 0) {
                     maxTime--;
-                } else {
-                    if (maxTime == 0) {
-                        maxTime = -1;
-                        Restart.DoingRestart();
-                    }
+                } else if (maxTime == 0) {
+                    maxTime = -1;
+                    Restart.DoingRestart();
                 }
             }
         });
@@ -96,7 +106,8 @@ public class Main extends Plugin {
             } else {
                 pl.team(Team.all[0]); // default team for new players
             }
-            Call.menu(pl.con, Cache.WelcomeMenuId, "[#008B8B]Foundation PvP", welcomeText, Resources.welcomeButtons);
+            MenuManager manager = new MenuManager();
+            manager.showGuide(pl);
             //unpausing server if it was paused
             if (isPause || Vars.state.isPaused()) {
                 Vars.state.set(GameState.State.playing);
@@ -124,7 +135,6 @@ public class Main extends Plugin {
             }
         });
 
-
         // When a player clicks on a tile to create a core and command
         Events.on(EventType.TapEvent.class, event -> {
             Player pla = event.player;
@@ -150,6 +160,7 @@ public class Main extends Plugin {
                         Cache.teams_Info.put(new_team, new TeamInfo());
                     }
                     tile.setNet(Blocks.coreNucleus, new_team, 0);
+                    Time.run(1f, () -> giveStartingResources(new_team));
                     pla.team(new_team);
                     if (Cache.teams_Info.containsKey(new_team)) {
                         Cache.teams_Info.get(new_team).leaderUuid = pla.uuid();
@@ -191,15 +202,16 @@ public class Main extends Plugin {
             Vars.state.rules.canGameOver = false;
             Vars.state.rules.waveTeam = Team.crux;
             Vars.state.rules.randomWaveAI = true;
-            Vars.state.rules.unitCap = 20;
+            Vars.state.rules.unitCap = 8;
             Vars.state.rules.planet = Planets.sun;
             Vars.state.rules.defaultTeam = Team.all[0];
             Vars.state.rules.unitCostMultiplier = 0.75f;
             Vars.state.rules.unitDamageMultiplier = 1.414f;
             Vars.state.rules.unitBuildSpeedMultiplier = 0.33f;
             Vars.state.rules.unitPayloadUpdate = true;
+            Vars.state.rules.reactorExplosions = true;
+            Vars.state.rules.logicUnitBuild = true;
             Call.setRules(Vars.state.rules);
-            Log.info("New game started. Rules applied.");
             Time.run(2f, () -> {
                 Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
                 Groups.player.each(p -> p.team(Team.all[0]));
@@ -226,6 +238,26 @@ public class Main extends Plugin {
         Administration.Config.desc.set(motd);
     }
 
+    private void giveStartingResources(Team team){
+        int bonus = getTeamResourceBonus();
+        team.core().items.add(Items.copper, bonus + 600);
+        team.core().items.add(Items.lead, bonus);
+        if (maxTime < 150) team.core().items.add(Items.graphite,  Math.max(0, bonus - 200));
+        if (maxTime < 150) team.core().items.add(Items.beryllium,  Math.max(0, bonus - 200));
+        if (maxTime < 300) team.core().items.add(Items.silicon, Math.max(0, bonus - 200));
+        if (maxTime < 300) team.core().items.add(Items.metaglass, Math.max(0, bonus - 200));
+        if (maxTime < 600) team.core().items.add(Items.titanium, Math.max(0, bonus - 500));
+        if (maxTime < 900) team.core().items.add(Items.thorium, Math.max(0, bonus - 1000));
+        if (maxTime < 900) team.core().items.add(Items.plastanium, Math.max(0, bonus - 1000));
+    }
+    private int getTeamResourceBonus() {
+        int elapsed = 10800 - maxTime;
+
+        return Math.min(
+                10000,
+                elapsed / 600 * 1000
+        );
+    }
     public void registerClientCommands(CommandHandler handler) {
         // Register commands for client here
         handler.<Player>register("restart", "Restart the game/Перезапустить игру", (args, player) -> {
@@ -239,7 +271,7 @@ public class Main extends Plugin {
             if (tile.build != null && tile.build.team == player.team()) {
                 tile.build.kill();
                 if (playerTeam.cores().isEmpty()) {
-                    kill_team(playerTeam);
+                    TeamDestroyTracker.surrenderTeam(playerTeam);
                     if(player.unit() != null) player.unit().kill();
                     Groups.player.each(p -> p.team() == playerTeam, p -> {
                         p.team(Team.all[0]);
@@ -254,34 +286,23 @@ public class Main extends Plugin {
         handler.<Player>register("spectate", "Destroys all your buildings and sends you to speactators/Уничтожает все постройки команды и переводит в наблюдателей",
                 (args, player) -> {
                     Team playerTeam = player.team();
+                    if (playerTeam == Team.all[0]) return;
                     boolean isLeader = false;
-                    // Checking if the player is the leader of the team
-                    if (player.team() != Team.all[0]) {
-                        TeamInfo info = Cache.teams_Info.get(playerTeam);
-                        if (info != null && info.leaderUuid != null) {
-                            if (info.leaderUuid.equals(player.uuid())) {
-                                isLeader = true;
-                            }
+                    TeamInfo info = Cache.teams_Info.get(playerTeam);
+                    if (info != null && info.leaderUuid != null) {
+                        if (info.leaderUuid.equals(player.uuid())) {
+                            isLeader = true;
                         }
-                        if (isLeader) {
-                            kill_team(player.team());
-                            player.team(Team.all[0]);
-                            if (player.unit() != null) player.unit().kill();
-                            Groups.player.each(p -> p.team() == playerTeam, p -> {
-                                p.team(Team.all[0]);
-                                if (p.unit() != null) p.unit().kill();
-                            });
-                            if (Cache.teams_Info.containsKey(playerTeam)) {
-                                Cache.teams_Info.get(playerTeam).leaderUuid = "";
-                            }
-                        } else {
-                            player.team(Team.all[0]);
-                            if (player.unit() != null ) player.unit().kill();
-                        }
+                    }
+                    if (isLeader) {
+                        TeamDestroyTracker.surrenderTeam(playerTeam);
+                    } else {
+                        player.team(Team.all[0]);
+                        if (player.unit() != null) player.unit().kill();
                     }
                 });
 
-        handler.<Player>register("team", "Team managment/Управление командой", (args, player) -> {
+        handler.<Player>register("team", "Team management/Управление командой", (args, player) -> {
             String[][] buttons = {
                     { Localisation.local(player, "teamMenuJoinButton") },
                     { Localisation.local(player, "teamMenuAcceptButton") },
@@ -342,20 +363,5 @@ public class Main extends Plugin {
         }
         // returning a team
         return Team.all[0];
-    }
-
-    // destroy all the buildings of a team and send them to derelict
-    public void kill_team(Team team) {
-        team.data().destroyToDerelict();
-        if (team.data().players != null){
-            Groups.player.each(p -> p.team() == team, p -> {
-                p.team(Team.all[0]);
-                var unit = p.unit();
-                if (unit != null) {
-                    unit.kill();
-                }
-            });
-        }
-
     }
 }

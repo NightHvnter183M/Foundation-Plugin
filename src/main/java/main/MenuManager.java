@@ -96,7 +96,7 @@ public class MenuManager {
                 });
 
                 if (remainingPlayers.isEmpty()) {
-                    kill_team(oldTeam);
+                    TeamDestroyTracker.surrenderTeam(oldTeam);
                     if (Cache.teams_Info.containsKey(oldTeam)) {
                         Cache.teams_Info.get(oldTeam).leaderUuid = "";
                     }
@@ -153,7 +153,22 @@ public class MenuManager {
 
         Cache.WelcomeMenuId = Menus.registerMenu((player, selection) ->{
             if(selection == 0){
+                showGuideOne(player);
+            }
+            if(selection == 1){
                 Call.openURI(player.con, "https://discord.gg/GMQRKUn8W8");
+            }
+        });
+
+        Cache.GuideOneMenuId = Menus.registerMenu((player, selection) -> {
+            if(selection == 0){
+                showGuideTwo(player);
+            }
+        });
+
+        Cache.GuideTwoMenuId = Menus.registerMenu((player, selection) -> {
+            if(selection == 0){
+                showGuideThree(player);
             }
         });
 
@@ -305,5 +320,34 @@ public class MenuManager {
                 sb.toString(),
                 options
         );
+    }
+
+    public void showGuide(Player p){
+        Call.menu(p.con, Cache.WelcomeMenuId, "",Localisation.local(p, "WelcomeTitle"), new String[][]{
+                {Localisation.local(p, "ShowGuide")},
+                {Localisation.local(p, "OpenDiscordButton")},
+                {Localisation.local(p, "menuCloseButton")},
+        });
+    }
+    private void showGuideOne(Player p){
+        String message = Localisation.local(p, "GuideOneMessageOne") + "\n" +  Localisation.local(p, "GuideOneMessageTwo");
+        Call.menu(p.con, Cache.GuideOneMenuId, Localisation.local(p, "GuideOneTitle"), message, new String[][]{
+                {Localisation.local(p, "NextMenuButton")},
+                {Localisation.local(p, "menuCloseButton")},
+        });
+    }
+
+    private void showGuideTwo(Player p) {
+        String message = Localisation.local(p, "GuideTwoMessageOne") + "\n" + Localisation.local(p, "GuideTwoMessageTwo") + "\n" + Localisation.local(p, "GuideTwoMessageThree") + "\n" + Localisation.local(p, "GuideTwoMessageFour");
+        Call.menu(p.con, Cache.GuideTwoMenuId, Localisation.local(p, "GuideTwoTitle"), message, new String[][]{
+                {Localisation.local(p, "NextMenuButton")},
+                {Localisation.local(p, "menuCloseButton")},
+        });
+    }
+    private void showGuideThree(Player p){
+        String message = Localisation.local(p, "GuideThreeMessageOne") + "\n" + Localisation.local(p, "GuideThreeMessageTwo") + "\n" + Localisation.local(p, "GuideThreeMessageThree");
+        Call.menu(p.con, Cache.GuideThreeMenuId, Localisation.local(p, "GuideThreeTitle"), message, new String[][]{
+                {Localisation.local(p, "menuCloseButton")},
+        });
     }
 }
