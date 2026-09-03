@@ -25,6 +25,7 @@ import static main.Resources.*;
 public class Main extends Plugin {
 
     private Boolean isPause = false;
+    private MenuManager menuManager;
 
     @Override
     public void init() {
@@ -39,7 +40,8 @@ public class Main extends Plugin {
             Cache.teams_Info.put(team, new TeamInfo());
         }
         MapVote.init();
-        new MenuManager().init();
+        menuManager = new MenuManager();
+        menuManager.init();
         TeamDestroyTracker.init();
         LeaderBoardManager.init();
         Blocks.coreShard.unitCapModifier = 1;
@@ -86,11 +88,6 @@ public class Main extends Plugin {
         // team derelict
         Events.on(EventType.GameOverEvent.class, event -> {
             Groups.player.each(p -> p.team(Team.all[0]));
-            Groups.build.each(b -> {
-                if (b instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
-                    b.kill();
-                }
-            });
         });
         // When a player joins the server
         Events.on(EventType.PlayerJoin.class, event -> {
@@ -106,8 +103,8 @@ public class Main extends Plugin {
             } else {
                 pl.team(Team.all[0]); // default team for new players
             }
-            MenuManager manager = new MenuManager();
-            manager.showGuide(pl);
+
+            menuManager.showGuide(pl);
             //unpausing server if it was paused
             if (isPause || Vars.state.isPaused()) {
                 Vars.state.set(GameState.State.playing);
@@ -316,22 +313,18 @@ public class Main extends Plugin {
         });
 
         handler.<Player>register("join", "Join other command/Присоедениться к другой команде",  (args, player) -> {
-            MenuManager menuManager = new MenuManager();
             menuManager.showJoinMenu((Player) player);
         });
 
         handler.<Player>register("accept", "accept a player to foin your team/Принять игрока в команду",  (args, player) -> {
-            MenuManager menuManager = new MenuManager();
             menuManager.showAcceptMenu((Player) player);
         });
 
         handler.<Player>register("deny", "deny a player/Отклонить запрос на вступление в команду",   (args, player) -> {
-            MenuManager menuManager = new MenuManager();
             menuManager.showDenyMenu((Player) player);
         });
 
         handler.<Player>register("top", "Show a leaderboard/Показать лидерборд игроков",   (args, player) -> {
-            MenuManager menuManager = new MenuManager();
             menuManager.showLeaderBoard((Player) player);
         });
 

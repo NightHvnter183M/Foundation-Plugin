@@ -29,7 +29,7 @@ public class MapVote {
         votes.clear();
         MapOptions.clear();
         Seq<Map> allMaps = Vars.maps.customMaps().shuffle();
-        for (int i = 0; i < Math.min(3, allMaps.size); i++){
+        for (int i = 0; i < Math.min(6, allMaps.size); i++){
             MapOptions.add(allMaps.get(i));
         }
         String[][] buttons = new String[MapOptions.size][1];
