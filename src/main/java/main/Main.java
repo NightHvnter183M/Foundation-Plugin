@@ -4,6 +4,7 @@ import arc.struct.Seq;
 import mindustry.content.Items;
 import mindustry.core.GameState;
 import mindustry.entities.Units;
+import mindustry.game.Teams;
 import mindustry.mod.Plugin;
 import mindustry.net.Administration;
 import mindustry.game.EventType;
@@ -11,7 +12,6 @@ import arc.Events;
 import arc.util.CommandHandler;
 import arc.util.Log;
 import arc.util.Time;
-import mindustry.Vars;
 import mindustry.content.Blocks;
 import mindustry.content.Planets;
 import mindustry.game.Team;
@@ -23,6 +23,8 @@ import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
 import static main.Cache.teamRequests;
 import static main.Resources.*;
+import static mindustry.Vars.state;
+import static mindustry.Vars.tilesize;
 
 public class Main extends Plugin {
 
@@ -110,8 +112,8 @@ public class Main extends Plugin {
 
             menuManager.showGuide(pl);
             //unpausing server if it was paused
-            if (isPause || Vars.state.isPaused()) {
-                Vars.state.set(GameState.State.playing);
+            if (isPause || state.isPaused()) {
+                state.set(GameState.State.playing);
                 isPause = false;
                 Log.info("server is unpaused");
             }
@@ -124,7 +126,7 @@ public class Main extends Plugin {
             teamRequests.remove(event.player.uuid());
             //pausing server
             if(Groups.player.size() == 1) {
-                Vars.state.set(GameState.State.paused);
+                state.set(GameState.State.paused);
                 isPause = true;
                 Log.info("server is paused");
             }
@@ -142,13 +144,12 @@ public class Main extends Plugin {
             Player player = event.player;
             Tile tile = event.tile;
             if (player.team() == Team.all[0] || player.team() == Team.all[1]) {
-                if (tile.block().solid) {
-                    return;
-                }
-                boolean close = false;
-                float minDistance = 200f;
-                float minDistanceSquared = 4000f;
-                //check if cache actually contains all the active teams before switching to this. #TODO
+                if (tile.block().solid) return;
+                float minDistance = 150f;
+                //Remade this slow section with better method nearAnyCore :)
+                // I guess commented code should be deleted next commit
+                boolean close = nearAnyCore(tile, minDistance);
+//                float minDistanceSquared = 4000f;
 //                for (Team team : Cache.teamsInfo.keys()) {
 //                    Seq<CoreBlock.CoreBuild> cores = team.cores();
 //                    for (CoreBlock.CoreBuild core : cores) {
@@ -158,16 +159,14 @@ public class Main extends Plugin {
 //                        }
 //                    }
 //                }
-
-                //this is incredibly inefficient. #FIXME
-                for (var build : Groups.build) {
-                    if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
-                        if (tile.dst(build.tile) < minDistance * 8) {
-                            close = true;
-                            break;
-                        }
-                    }
-                }
+//                for (var build : Groups.build) {
+//                    if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
+//                        if (tile.dst(build.tile) < minDistance * 8) {
+//                            close = true;
+//                            break;
+//                        }
+//                    }
+//                }
                 if (!close) {
                     // creating a new team
                     Team new_team = takeNewTeam();
@@ -212,37 +211,37 @@ public class Main extends Plugin {
         //Killing team is now in teamDestroyTracker.java
         Events.on(EventType.PlayEvent.class, event -> {
             maxTime = 10800;
-            Vars.state.rules.pvp = true;
-            Vars.state.rules.pvpAutoPause = false;
-            Vars.state.rules.canGameOver = false;
-            Vars.state.rules.waveTeam = Team.crux;
-            Vars.state.rules.randomWaveAI = true;
-            Vars.state.rules.unitCap = 8;
-            Vars.state.rules.planet = Planets.sun;
-            Vars.state.rules.defaultTeam = Team.all[0];
-            Vars.state.rules.unitCostMultiplier = 0.75f;
-            Vars.state.rules.unitDamageMultiplier = 1.414f;
-            Vars.state.rules.unitBuildSpeedMultiplier = 0.33f;
-            Vars.state.rules.unitPayloadUpdate = true;
-            Vars.state.rules.reactorExplosions = true;
-            Vars.state.rules.logicUnitBuild = true;
-            Vars.state.rules.loadout.clear();
-            Vars.state.rules.loadout.add(new ItemStack(Items.copper, 600));
-            Vars.state.rules.loadout.add(new ItemStack(Items.lead, 600));
-            Vars.state.rules.loadout.add(new ItemStack(Items.metaglass, 100));
-            Vars.state.rules.loadout.add(new ItemStack(Items.beryllium, 100));
-            Call.setRules(Vars.state.rules);
+            state.rules.pvp = true;
+            state.rules.pvpAutoPause = false;
+            state.rules.canGameOver = false;
+            state.rules.waveTeam = Team.crux;
+            state.rules.randomWaveAI = true;
+            state.rules.unitCap = 8;
+            state.rules.planet = Planets.sun;
+            state.rules.defaultTeam = Team.all[0];
+            state.rules.unitCostMultiplier = 0.75f;
+            state.rules.unitDamageMultiplier = 1.414f;
+            state.rules.unitBuildSpeedMultiplier = 0.33f;
+            state.rules.unitPayloadUpdate = true;
+            state.rules.reactorExplosions = true;
+            state.rules.logicUnitBuild = true;
+            state.rules.loadout.clear();
+            state.rules.loadout.add(new ItemStack(Items.copper, 600));
+            state.rules.loadout.add(new ItemStack(Items.lead, 600));
+            state.rules.loadout.add(new ItemStack(Items.metaglass, 100));
+            state.rules.loadout.add(new ItemStack(Items.beryllium, 100));
+            Call.setRules(state.rules);
             Time.run(2f, () -> {
                 Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
                 Groups.player.each(p -> p.team(Team.all[0]));
             });
             if(isPause){
                 if(Groups.player.isEmpty()){
-                    Vars.state.set(GameState.State.paused);
+                    state.set(GameState.State.paused);
                     Log.info("server is paused");
                 }
                 else{
-                    Vars.state.set(GameState.State.playing);
+                    state.set(GameState.State.playing);
                     isPause = false;
                     Log.info("server is unpaused");
                 }
@@ -260,15 +259,19 @@ public class Main extends Plugin {
 
     private void giveStartingResources(Team team){
         int bonus = getTeamResourceBonus();
-        team.core().items.add(Items.copper, bonus + 600);
-        team.core().items.add(Items.lead, bonus);
-        if (maxTime < 150) team.core().items.add(Items.graphite,  Math.max(0, bonus - 200));
-        if (maxTime < 150) team.core().items.add(Items.beryllium,  Math.max(0, bonus - 200));
-        if (maxTime < 300) team.core().items.add(Items.silicon, Math.max(0, bonus - 200));
-        if (maxTime < 300) team.core().items.add(Items.metaglass, Math.max(0, bonus - 200));
-        if (maxTime < 600) team.core().items.add(Items.titanium, Math.max(0, bonus - 500));
-        if (maxTime < 900) team.core().items.add(Items.thorium, Math.max(0, bonus - 1000));
-        if (maxTime < 900) team.core().items.add(Items.plastanium, Math.max(0, bonus - 1000));
+        // Before it caused crashed, so i had to add a check
+        if (team.core() != null)
+        {
+            team.core().items.add(Items.copper, bonus + 600);
+            team.core().items.add(Items.lead, bonus);
+            if (maxTime < 150) team.core().items.add(Items.graphite, Math.max(0, bonus - 200));
+            if (maxTime < 150) team.core().items.add(Items.beryllium, Math.max(0, bonus - 200));
+            if (maxTime < 300) team.core().items.add(Items.silicon, Math.max(0, bonus - 200));
+            if (maxTime < 300) team.core().items.add(Items.metaglass, Math.max(0, bonus - 200));
+            if (maxTime < 600) team.core().items.add(Items.titanium, Math.max(0, bonus - 500));
+            if (maxTime < 900) team.core().items.add(Items.thorium, Math.max(0, bonus - 1000));
+            if (maxTime < 900) team.core().items.add(Items.plastanium, Math.max(0, bonus - 1000));
+        }
     }
     private int getTeamResourceBonus() {
         int elapsed = 10800 - maxTime;
@@ -360,7 +363,7 @@ public class Main extends Plugin {
             player.sendMessage(
                     Localisation.local(player, "StatisticsMessage") + "\n" +
                             Localisation.local(player, "StatisticsPosition") + " " + stats.position + "\n" +
-                            Localisation.local(player, "StatisticsPoints") + "" + stats.points
+                            Localisation.local(player, "StatisticsPoints") + " " + stats.points
             );
         });
     }
@@ -379,5 +382,16 @@ public class Main extends Plugin {
         }
         // returning a team
         return Team.all[0];
+    }
+    //Now it checks only cores, no all the buildings over the map
+    private boolean nearAnyCore(Tile tile, float distance) {
+        float x = tile.worldx(), y = tile.worldy();
+        float radius = distance * tilesize;
+        for (Teams.TeamData data : state.teams.active) {
+            for (CoreBlock.CoreBuild core : data.cores) {
+                if (core.within(x, y, radius)) return true;
+            }
+        }
+        return false;
     }
 }
