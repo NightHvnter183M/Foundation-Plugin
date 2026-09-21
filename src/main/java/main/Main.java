@@ -149,15 +149,15 @@ public class Main extends Plugin {
                 float minDistance = 200f;
                 float minDistanceSquared = 4000f;
                 //check if cache actually contains all the active teams before switching to this. #TODO
-                for (Team team : Cache.teamsInfo.keys()) {
-                    Seq<CoreBlock.CoreBuild> cores = team.cores();
-                    for (CoreBlock.CoreBuild core : cores) {
-                        if (core.dst2(tile.x, tile.y) < minDistanceSquared*8) {
-                            close = true;
-                            break;
-                        }
-                    }
-                }
+//                for (Team team : Cache.teamsInfo.keys()) {
+//                    Seq<CoreBlock.CoreBuild> cores = team.cores();
+//                    for (CoreBlock.CoreBuild core : cores) {
+//                        if (core.dst2(tile.x, tile.y) < minDistanceSquared*8) {
+//                            close = true;
+//                            break;
+//                        }
+//                    }
+//                }
 
                 //this is incredibly inefficient. #FIXME
                 for (var build : Groups.build) {
