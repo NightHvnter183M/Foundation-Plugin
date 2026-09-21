@@ -1,5 +1,6 @@
 package main;
 
+import arc.struct.Seq;
 import mindustry.content.Items;
 import mindustry.core.GameState;
 import mindustry.entities.Units;
@@ -17,6 +18,7 @@ import mindustry.game.Team;
 import mindustry.gen.Call;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
+import mindustry.type.ItemStack;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
 import static main.Cache.teamRequests;
@@ -36,9 +38,11 @@ public class Main extends Plugin {
         // Starting the server
         Events.on(EventType.WorldLoadBeginEvent.class, event -> Log.info("world load"));
         // Initializing the cache of teamleaders
-        for (Team team : Team.all) {
-            Cache.teams_Info.put(team, new TeamInfo());
-        }
+//        for (Team team : Team.all) {
+//            Cache.teamsInfo.put(team, new TeamInfo());
+//        }
+        //removed because Team.all returns all 256 teams instead of active ones
+
         MapVote.init();
         menuManager = new MenuManager();
         menuManager.init();
@@ -124,6 +128,7 @@ public class Main extends Plugin {
                 isPause = true;
                 Log.info("server is paused");
             }
+            if (Cache.teamsInfo.get(pl.team()) != null) Cache.teamsInfo.get(pl.team()).removePlayer(pl);
         });
 
         Events.on(EventType.UnitSpawnEvent.class, event -> {
@@ -134,17 +139,30 @@ public class Main extends Plugin {
 
         // When a player clicks on a tile to create a core and command
         Events.on(EventType.TapEvent.class, event -> {
-            Player pla = event.player;
+            Player player = event.player;
             Tile tile = event.tile;
-            if (pla.team() == Team.all[0]|| pla.team() == Team.all[1]) {
-                if (tile.solid()) {
+            if (player.team() == Team.all[0] || player.team() == Team.all[1]) {
+                if (tile.block().solid) {
                     return;
                 }
                 boolean close = false;
-                float mindist = 200f;
+                float minDistance = 200f;
+                float minDistanceSquared = 4000f;
+                //check if cache actually contains all the active teams before switching to this. #TODO
+//                for (Team team : Cache.teamsInfo.keys()) {
+//                    Seq<CoreBlock.CoreBuild> cores = team.cores();
+//                    for (CoreBlock.CoreBuild core : cores) {
+//                        if (core.dst2(tile.x, tile.y) < minDistanceSquared*8) {
+//                            close = true;
+//                            break;
+//                        }
+//                    }
+//                }
+
+                //this is incredibly inefficient. #FIXME
                 for (var build : Groups.build) {
                     if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
-                        if (tile.dst(build.tile) < mindist * 5) {
+                        if (tile.dst(build.tile) < minDistance * 8) {
                             close = true;
                             break;
                         }
@@ -153,19 +171,19 @@ public class Main extends Plugin {
                 if (!close) {
                     // creating a new team
                     Team new_team = takeNewTeam();
-                    if (!Cache.teams_Info.containsKey(new_team)) {
-                        Cache.teams_Info.put(new_team, new TeamInfo());
+                    if (!Cache.teamsInfo.containsKey(new_team)) {
+                        Cache.teamsInfo.put(new_team, new TeamInfo(player.uuid(), new Seq<Player>().add(player)));
                     }
                     tile.setNet(Blocks.coreNucleus, new_team, 0);
                     Time.run(1f, () -> giveStartingResources(new_team));
-                    pla.team(new_team);
-                    if (Cache.teams_Info.containsKey(new_team)) {
-                        Cache.teams_Info.get(new_team).leaderUuid = pla.uuid();
-                        TeamInfo info = Cache.teams_Info.get(new_team);
-                        info.leaderUuid = pla.uuid();
+                    player.team(new_team);
+                    if (Cache.teamsInfo.containsKey(new_team)) {
+                        Cache.teamsInfo.get(new_team).setLeaderUuid(player.uuid());
+                        TeamInfo info = Cache.teamsInfo.get(new_team);
+                        info.setLeaderUuid(player.uuid());
                     }
                 } else {
-                    pla.sendMessage(Localisation.local(pla, "tooCloseCoreWarning"));
+                    player.sendMessage(Localisation.local(player, "tooCloseCoreWarning"));
                 }
             }
         });
@@ -208,13 +226,18 @@ public class Main extends Plugin {
             Vars.state.rules.unitPayloadUpdate = true;
             Vars.state.rules.reactorExplosions = true;
             Vars.state.rules.logicUnitBuild = true;
+            Vars.state.rules.loadout.clear();
+            Vars.state.rules.loadout.add(new ItemStack(Items.copper, 600));
+            Vars.state.rules.loadout.add(new ItemStack(Items.lead, 600));
+            Vars.state.rules.loadout.add(new ItemStack(Items.metaglass, 100));
+            Vars.state.rules.loadout.add(new ItemStack(Items.beryllium, 100));
             Call.setRules(Vars.state.rules);
             Time.run(2f, () -> {
                 Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
                 Groups.player.each(p -> p.team(Team.all[0]));
             });
             if(isPause){
-                if(Groups.player.size() == 0){
+                if(Groups.player.isEmpty()){
                     Vars.state.set(GameState.State.paused);
                     Log.info("server is paused");
                 }
@@ -272,8 +295,8 @@ public class Main extends Plugin {
                     if(player.unit() != null) player.unit().kill();
                     Groups.player.each(p -> p.team() == playerTeam, p -> {
                         p.team(Team.all[0]);
-                        if (Cache.teams_Info.containsKey(playerTeam)) {
-                            Cache.teams_Info.get(playerTeam).leaderUuid = "";
+                        if (Cache.teamsInfo.containsKey(playerTeam)) {
+                            Cache.teamsInfo.get(playerTeam).setLeaderUuid("");
                         }
                     });
                 }
@@ -285,9 +308,9 @@ public class Main extends Plugin {
                     Team playerTeam = player.team();
                     if (playerTeam == Team.all[0]) return;
                     boolean isLeader = false;
-                    TeamInfo info = Cache.teams_Info.get(playerTeam);
-                    if (info != null && info.leaderUuid != null) {
-                        if (info.leaderUuid.equals(player.uuid())) {
+                    TeamInfo info = Cache.teamsInfo.get(playerTeam);
+                    if (info != null && info.getLeaderUuid() != null) {
+                        if (info.getLeaderUuid().equals(player.uuid())) {
                             isLeader = true;
                         }
                     }

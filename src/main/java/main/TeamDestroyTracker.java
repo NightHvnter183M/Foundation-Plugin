@@ -70,8 +70,8 @@ public class TeamDestroyTracker {
 
                 kill_team(victimTeam);
 
-                if (Cache.teams_Info.containsKey(victimTeam)) {
-                    Cache.teams_Info.get(victimTeam).leaderUuid = "";
+                if (Cache.teamsInfo.containsKey(victimTeam)) {
+                    Cache.teamsInfo.get(victimTeam).setLeaderUuid(null);
                 }
 
                 Time.run(60f, () -> destroyedTeams.remove(victimTeam));
@@ -125,8 +125,8 @@ public class TeamDestroyTracker {
 
         kill_team(team);
 
-        if (Cache.teams_Info.containsKey(team)) {
-            Cache.teams_Info.get(team).leaderUuid = "";
+        if (Cache.teamsInfo.containsKey(team)) {
+            Cache.teamsInfo.get(team).setLeaderUuid(null);
 
             Time.run(60f, () -> destroyedTeams.remove(team));
         }
