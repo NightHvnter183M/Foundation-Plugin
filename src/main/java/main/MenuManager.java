@@ -1,7 +1,6 @@
 package main;
 
 import arc.struct.Seq;
-import arc.util.Log;
 import mindustry.game.Team;
 import mindustry.gen.Call;
 import mindustry.gen.Groups;
@@ -81,10 +80,10 @@ public class MenuManager {
             found.sendMessage( Localisation.local(found, "teamRequestsAccepted")  + " " + player.name);
             if (wasLeader) {
 
-                TeamInfo oldInfo = Cache.teams_Info.get(oldTeam);
+                TeamInfo oldInfo = Cache.teamsInfo.get(oldTeam);
 
                 if (oldInfo != null) {
-                    oldInfo.leaderUuid = "";
+                    oldInfo.setLeaderUuid("");
                 }
 
                 Seq<Player> remainingPlayers = new Seq<>();
@@ -97,13 +96,13 @@ public class MenuManager {
 
                 if (remainingPlayers.isEmpty()) {
                     TeamDestroyTracker.surrenderTeam(oldTeam);
-                    if (Cache.teams_Info.containsKey(oldTeam)) {
-                        Cache.teams_Info.get(oldTeam).leaderUuid = "";
+                    if (Cache.teamsInfo.containsKey(oldTeam)) {
+                        Cache.teamsInfo.get(oldTeam).setLeaderUuid("");
                     }
                 } else {
                     Player newLeader = remainingPlayers.random();
                     if (oldInfo != null) {
-                        oldInfo.leaderUuid = newLeader.uuid();
+                        oldInfo.setLeaderUuid(newLeader.uuid());
                     }
                     newLeader.sendMessage(Localisation.local(player, "teamLeaderLeftMessage"));
                 }
@@ -141,9 +140,9 @@ public class MenuManager {
             Seq<Player> teammates = getTeammates(player);
             if (selection < teammates.size) {
                 Player target = teammates.get(selection);
-                TeamInfo info = Cache.teams_Info.get(player.team());
+                TeamInfo info = Cache.teamsInfo.get(player.team());
                 if (info != null) {
-                    info.leaderUuid = target.uuid();
+                    info.setLeaderUuid(target.uuid());
                     player.sendMessage(Localisation.local(player, "SetLeaderMenuTransfer") + " " + target.name);
                     target.sendMessage(Localisation.local(target, "SetLeaderMenuTransferred"));
                 }
@@ -192,8 +191,8 @@ public class MenuManager {
     }
 
     private boolean isLeader(Player p) {
-        var info = Cache.teams_Info.get(p.team());
-        return info != null && info.leaderUuid.equals(p.uuid());
+        var info = Cache.teamsInfo.get(p.team());
+        return info != null && info.getLeaderUuid().equals(p.uuid());
     }
 
     private Seq<Player> getOthers(Player p) {
@@ -201,11 +200,12 @@ public class MenuManager {
         Groups.player.each(other -> {
             if (other == p) return;
 
-            TeamInfo info = Cache.teams_Info.get(other.team());
+            TeamInfo info = Cache.teamsInfo.get(other.team());
 
+            //btw leader uuid is probably never gonna be null, so b
             if (info != null &&
-                    info.leaderUuid != null &&
-                    info.leaderUuid.equals(other.uuid())) {
+                    info.getLeaderUuid() != null &&
+                    info.getLeaderUuid().equals(other.uuid())) {
 
                 list.add(other);
             }
