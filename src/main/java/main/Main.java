@@ -208,6 +208,11 @@ public class Main extends Plugin {
             Vars.state.rules.unitPayloadUpdate = true;
             Vars.state.rules.reactorExplosions = true;
             Vars.state.rules.logicUnitBuild = true;
+            Vars.state.rules.loadout.clear();
+            Vars.state.rules.loadout.add(new ItemStack(Items.copper, 600));
+            Vars.state.rules.loadout.add(new ItemStack(Items.lead, 600));
+            Vars.state.rules.loadout.add(new ItemStack(Items.metaglass, 100));
+            Vars.state.rules.loadout.add(new ItemStack(Items.beryllium, 100));
             Call.setRules(Vars.state.rules);
             Time.run(2f, () -> {
                 Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
