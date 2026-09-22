@@ -3,6 +3,7 @@ package main;
 import arc.math.Mathf;
 import arc.struct.Seq;
 import arc.util.Strings;
+import mindustry.Vars;
 import mindustry.content.Items;
 import mindustry.core.GameState;
 import mindustry.entities.Units;
@@ -23,9 +24,14 @@ import mindustry.gen.Player;
 import mindustry.type.ItemStack;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
+
+import java.util.HashSet;
+import java.util.Set;
+
 import static main.Cache.teamRequests;
 import static main.Resources.*;
 import static mindustry.Vars.*;
+import static mindustry.Vars.player;
 
 public class Main extends Plugin {
 
@@ -445,41 +451,45 @@ public class Main extends Plugin {
                player.sendMessage("[red]Access denied.");
                return;
            }
-            switch(args.length) {
-                case 1 -> {
-                    try {
-                        Team team = Team.all[Integer.parseInt(args[0])];
-                        player.team(team);
-                        player.update();
-                    } catch (Exception e) {
-                        player.sendMessage("[red]Invalid team ID.");
-                        player.sendMessage("[yellow]Available teams:");
-                        Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
-                        return;
-                    }
-                }
-                case 2 -> {
-                    try {
-                        Team team = Team.all[Integer.parseInt(args[0])];
-                        String targetName = args[1].toLowerCase();
-                        try {
-                            Player target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
-                            if (target == null) throw new IllegalArgumentException("Player not found.");
-                            target.team(team);
-                            target.update();
-                        } catch (Exception e) {
-                            player.sendMessage("[red]Invalid player name.");
-                            return;
-                        }
-                    } catch (Exception e) {
-                        player.sendMessage("[red]Invalid team ID.");
-                        player.sendMessage("[yellow]Available teams:");
-                        Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
-                        return;
-                    }
-                }
-                default -> player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
-            }
+           switch(args.length) {
+               case 1 -> {
+                   try {
+                       Team team = Team.all[Integer.parseInt(args[0])];
+                       player.team(team);
+                       player.update();
+                   } catch (Exception e) {
+                       player.sendMessage("[red]Invalid team ID.");
+                       player.sendMessage("[yellow]Available teams:");
+                       Set<Integer> teamIds = new HashSet<>();
+                       Groups.player.forEach(p -> teamIds.add(p.team().id));
+                       Cache.playerTeams.forEach(entry -> teamIds.add(entry.value.id));
+                       teamIds.forEach(id -> player.sendMessage("[yellow]" + id));
+                   }
+               }
+               case 2 -> {
+                   try {
+                       Team team = Team.all[Integer.parseInt(args[0])];
+                       String targetName = args[1].toLowerCase();
+                       try {
+                           Player target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
+                           if (target == null) throw new IllegalArgumentException("Player not found.");
+                           target.team(team);
+                       } catch (Exception e) {
+                           player.sendMessage("[red]Invalid player name.");
+                       }
+                   } catch (Exception e) {
+                       player.sendMessage("[red]Invalid team ID.");
+                       player.sendMessage("[yellow]Available teams:");
+                       Set<Integer> teamIds = new HashSet<>();
+                       Groups.player.forEach(p -> teamIds.add(p.team().id));
+                       Cache.playerTeams.forEach(entry -> teamIds.add(entry.value.id));
+                       teamIds.forEach(id -> player.sendMessage("[yellow]" + id));
+                   }
+               }
+               default -> {
+                   player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
+               }
+           }
         };
 
         ///And finally registering commands with previous logic(kill me please)
@@ -494,7 +504,7 @@ public class Main extends Plugin {
         addCommand(handler, "Show a leaderboard/Показать лидерборд игроков", topCom, "top", "leaderboard", "lb");
         addCommand(handler, "Check leaderboard position/Узнать место в топе", rankCom, "rank", "place", "pl");
         addCommand(handler, "[ADMIN ONLY]Force restart the game", forceCom, "forcerestart", "frestart", "force");
-        addCommand(handler, "<team_id> [player]", "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
+        addCommand(handler, "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
         handler.register("help", "[page]", "Commands", this::sendHelp);
 
 
@@ -567,14 +577,6 @@ public class Main extends Plugin {
         for (String name : names) {
             handler.register(name, description, logic);
         }
-    }
-
-    private void addCommand(CommandHandler handler, String params, String description, CommandHandler.CommandRunner<Player> logic, String... names){
-        helpEntries.add(new HelpEntry(description, names));
-        for (String name : names) {
-            handler.register(name, params, description, logic);
-        }
-
     }
 
     public static class HelpEntry{
