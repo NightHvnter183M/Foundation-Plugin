@@ -148,47 +148,23 @@ public class Main extends Plugin {
         Events.on(EventType.TapEvent.class, event -> {
             Player player = event.player;
             Tile tile = event.tile;
-            if (player.team() == Team.all[0] || player.team() == Team.all[1]) {
-                if (tile.block().solid) return;
-                float minDistance = 150f;
-                //Remade this slow section with better method nearAnyCore :)
-                // I guess commented code should be deleted next commit
-                boolean close = nearAnyCore(tile, minDistance);
-//                float minDistanceSquared = 4000f;
-//                for (Team team : Cache.teamsInfo.keys()) {
-//                    Seq<CoreBlock.CoreBuild> cores = team.cores();
-//                    for (CoreBlock.CoreBuild core : cores) {
-//                        if (core.dst2(tile.x, tile.y) < minDistanceSquared*8) {
-//                            close = true;
-//                            break;
-//                        }
-//                    }
-//                }
-//                for (var build : Groups.build) {
-//                    if (build instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
-//                        if (tile.dst(build.tile) < minDistance * 8) {
-//                            close = true;
-//                            break;
-//                        }
-//                    }
-//                }
-                if (!close) {
-                    // creating a new team
-                    Team new_team = takeNewTeam();
-                    if (!Cache.teamsInfo.containsKey(new_team)) {
-                        Cache.teamsInfo.put(new_team, new TeamInfo(player.uuid(), new Seq<Player>().add(player)));
-                    }
-                    tile.setNet(Blocks.coreNucleus, new_team, 0);
-                    Time.run(1f, () -> giveStartingResources(new_team));
-                    player.team(new_team);
-                    if (Cache.teamsInfo.containsKey(new_team)) {
-                        Cache.teamsInfo.get(new_team).setLeaderUuid(player.uuid());
-                        TeamInfo info = Cache.teamsInfo.get(new_team);
-                        info.setLeaderUuid(player.uuid());
-                    }
-                } else {
-                    player.sendMessage(Localisation.local(player, "tooCloseCoreWarning"));
-                }
+            if (player.team() != Team.all[0] && player.team() != Team.all[1]) return;
+            if (!isValidSpawn(tile, 150f)) {
+                player.sendMessage(Localisation.local(player, "tooCloseCoreWarning"));
+                return;
+            }
+
+            // creating a new team
+            Team newTeam = takeNewTeam();
+            if (!Cache.teamsInfo.containsKey(newTeam)) {
+                Cache.teamsInfo.put(newTeam, new TeamInfo(player.uuid(), new Seq<Player>().add(player)));
+            }
+            tile.setNet(Blocks.coreNucleus, newTeam, 0);
+            Time.run(1f, () -> giveStartingResources(newTeam));
+            player.team(newTeam);
+            if (Cache.teamsInfo.containsKey(newTeam)) {
+                TeamInfo info = Cache.teamsInfo.get(newTeam);
+                info.setLeaderUuid(player.uuid());
             }
         });
         // Replacing vault with core sharped
