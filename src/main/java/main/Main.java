@@ -179,7 +179,7 @@ public class Main extends Plugin {
             Team builderTeam = event.team;
             Tile tile = event.tile;
 
-            if (nearAnyCore(tile, minDist)) return;
+            if (nearEnemyCore(tile, minDist, builderTeam)) return;
 
             Time.run(1f, () -> tile.setNet(Blocks.coreShard, builderTeam, 0));
         });
@@ -551,6 +551,18 @@ public class Main extends Plugin {
         float x = tile.worldx(), y = tile.worldy();
         float radius = distance * tilesize;
         for (Teams.TeamData data : state.teams.active) {
+            for (CoreBlock.CoreBuild core : data.cores) {
+                if (core.within(x, y, radius)) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean nearEnemyCore(Tile tile, float distance, Team team) {
+        float x = tile.worldx(), y = tile.worldy();
+        float radius = distance * tilesize;
+        for (Teams.TeamData data : state.teams.active) {
+            if (data.team == team) continue;
             for (CoreBlock.CoreBuild core : data.cores) {
                 if (core.within(x, y, radius)) return true;
             }
