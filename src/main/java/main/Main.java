@@ -1,6 +1,8 @@
 package main;
 
+import arc.math.Mathf;
 import arc.struct.Seq;
+import arc.util.Strings;
 import mindustry.content.Items;
 import mindustry.core.GameState;
 import mindustry.entities.Units;
@@ -31,6 +33,7 @@ public class Main extends Plugin {
     private Boolean isPause = false;
     private MenuManager menuManager;
     private static final Team DEFAULT_TEAM = Team.all[0];
+    private final Seq<HelpEntry> helpEntries = new Seq<>();
 
     @Override
     public void init() {
@@ -140,6 +143,7 @@ public class Main extends Plugin {
         });
 
         // When a player clicks on a tile to create a core and command
+        // FIXME PLEASE GOD
         Events.on(EventType.TapEvent.class, event -> {
             Player player = event.player;
             Tile tile = event.tile;
@@ -243,13 +247,138 @@ public class Main extends Plugin {
         );
     }
     public void registerClientCommands(CommandHandler handler) {
-        // Register commands for client here
-        handler.<Player>register("restart", "Restart the game/Перезапустить игру", (args, player) -> {
+        // It all will be remade with Alias and HelpEntry(for better UX)
+//        handler.<Player>register("restart", "Restart the game/Перезапустить игру", (args, player) -> {
+//            if(Groups.player.size() == 1) Restart.DoingRestart();
+//            else Restart.AddVotes(player);
+//
+//        });
+//        handler.<Player>register("destroy", "Destroy your building/Уничтожить строение", (args, player) -> {
+//            Tile tile = player.tileOn();
+//            Team playerTeam = player.team();
+//            if (tile.build == null || tile.build.team == player.team()) return;
+//            tile.build.kill();
+//            if (!playerTeam.cores().isEmpty()) return;
+//            TeamDestroyTracker.surrenderTeam(playerTeam);
+//            if(player.unit() != null) player.unit().kill();
+//            Groups.player.each(p -> p.team() == playerTeam, p -> {
+//                p.team(Team.all[0]);
+//                if (Cache.teamsInfo.containsKey(playerTeam)) {
+//                    Cache.teamsInfo.get(playerTeam).setLeaderUuid("");
+//                }
+//            });
+//        });
+//
+//
+//
+//        handler.<Player>register("spectate", "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей",
+//                (args, player) -> spectateCommand(player));
+//        handler.<Player>register("gg", "/spectate alias",
+//                (args, player) -> spectateCommand(player));
+//        handler.<Player>register("die", "/spectate alias",
+//                (args, player) -> spectateCommand(player));
+//        handler.<Player>register("s", "/spectate alias",
+//                (args, player) -> spectateCommand(player));
+//
+//        handler.<Player>register("team", "Team management/Управление командой", (args, player) -> {
+//            String[][] buttons = {
+//                    { Localisation.local(player, "teamMenuJoinButton") },
+//                    { Localisation.local(player, "teamMenuAcceptButton") },
+//                    { Localisation.local(player, "teamMenuKickButton") },
+//                    { Localisation.local(player, "teamMenuDenyButton") },
+//                    { Localisation.local(player, "teamMenuLeadButton") },
+//                    { Localisation.local(player, "menuCloseButton") },
+//            };
+//            // Open the team management menu for the player
+//            Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
+//        });
+//
+//        handler.<Player>register("join", "Join other team/Присоедениться к другой команде",  (args, player) -> {
+//            menuManager.showJoinMenu((Player) player);
+//        });
+//
+//        handler.<Player>register("accept", "Accept join request/Принять игрока в команду",  (args, player) -> {
+//            menuManager.showAcceptMenu((Player) player);
+//        });
+//
+//        handler.<Player>register("deny", "Deny join request/Отклонить запрос на вступление в команду",   (args, player) -> {
+//            menuManager.showDenyMenu((Player) player);
+//        });
+//
+//        handler.<Player>register("top", "Show a leaderboard/Показать лидерборд игроков",   (args, player) -> {
+//            menuManager.showLeaderBoard((Player) player);
+//        });
+//
+//        handler.<Player>register("rank", "Check leaderboard position/Узнать место в топе",   (args, player) -> {
+//            LeaderBoardManager.Player stats = LeaderBoardManager.getPlayerStats(player.uuid());
+//            if (stats == null) {
+//                player.sendMessage(Localisation.local(player, "leaderboardPositionNotFound"));
+//                return;
+//            }
+//            player.sendMessage(
+//                    Localisation.local(player, "StatisticsMessage") + "\n" +
+//                            Localisation.local(player, "StatisticsPosition") + " " + stats.position + "\n" +
+//                            Localisation.local(player, "StatisticsPoints") + " " + stats.points
+//            );
+//        });
+//
+//        // Admin commands
+//
+//        // Force restart the game
+//        handler.<Player>register("forcerestart", "Force restart the game", (args, player) -> {
+//            if (!player.admin()) {
+//                player.sendMessage("[red]Access denied.");
+//                return;
+//            }
+//            Restart.DoingRestart();
+//        });
+//
+//        // Change team for yourself or another player
+//        handler.<Player>register("changeteam", "Changes specified player's team.(Yours if player is unspecified.)", (args, player) -> {
+//           if (!player.admin()) {
+//               player.sendMessage("[red]Access denied.");
+//               return;
+//           }
+//           switch(args.length) {
+//               case 1:
+//                   try {
+//                       Team team = Team.all[Integer.parseInt(args[0])];
+//                       player.team(team);
+//                   } catch (Exception e) {
+//                       player.sendMessage("[red]Invalid team ID.");
+//                       player.sendMessage("[yellow]Available teams:");
+//                       Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
+//                       return;
+//                   }
+//               case 2:
+//                   try {
+//                       Team team = Team.all[Integer.parseInt(args[0])];
+//                       String targetName = args[1].toLowerCase();
+//                       try {
+//                           Player target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
+//                           if (target == null) throw new IllegalArgumentException("Player not found.");
+//                           target.team(team);
+//                       } catch (Exception e) {
+//                           player.sendMessage("[red]Invalid player name.");
+//                           return;
+//                       }
+//                   } catch (Exception e) {
+//                       player.sendMessage("[red]Invalid team ID.");
+//                       player.sendMessage("[yellow]Available teams:");
+//                       Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
+//                       return;
+//                   }
+//               default:
+//                   player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
+//           }
+//        });
+        ///Here are CommandLogics
+        CommandHandler.CommandRunner<Player> restartCom =(args, player) -> {
             if(Groups.player.size() == 1) Restart.DoingRestart();
             else Restart.AddVotes(player);
+        };
 
-        });
-        handler.<Player>register("destroy", "Destroy your building/Уничтожить строение", (args, player) -> {
+        CommandHandler.CommandRunner<Player> destroyCom = (args, player) -> {
             Tile tile = player.tileOn();
             Team playerTeam = player.team();
             if (tile.build == null || tile.build.team == player.team()) return;
@@ -263,20 +392,11 @@ public class Main extends Plugin {
                     Cache.teamsInfo.get(playerTeam).setLeaderUuid("");
                 }
             });
-        });
+        };
 
+        CommandHandler.CommandRunner<Player> spectateCom = (args, player) -> spectateCommand(player);
 
-
-        handler.<Player>register("spectate", "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей",
-                (args, player) -> spectateCommand(player));
-        handler.<Player>register("gg", "/spectate alias",
-                (args, player) -> spectateCommand(player));
-        handler.<Player>register("die", "/spectate alias",
-                (args, player) -> spectateCommand(player));
-        handler.<Player>register("s", "/spectate alias",
-                (args, player) -> spectateCommand(player));
-
-        handler.<Player>register("team", "Team management/Управление командой", (args, player) -> {
+        CommandHandler.CommandRunner<Player> teamCom = (args, player) -> {
             String[][] buttons = {
                     { Localisation.local(player, "teamMenuJoinButton") },
                     { Localisation.local(player, "teamMenuAcceptButton") },
@@ -287,25 +407,17 @@ public class Main extends Plugin {
             };
             // Open the team management menu for the player
             Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
-        });
+        };
 
-        handler.<Player>register("join", "Join other team/Присоедениться к другой команде",  (args, player) -> {
-            menuManager.showJoinMenu((Player) player);
-        });
+        CommandHandler.CommandRunner<Player> joinCom = (args, player) -> menuManager.showJoinMenu(player);
 
-        handler.<Player>register("accept", "Accept join request/Принять игрока в команду",  (args, player) -> {
-            menuManager.showAcceptMenu((Player) player);
-        });
+        CommandHandler.CommandRunner<Player> acceptCom = (args, player) -> menuManager.showAcceptMenu(player);
 
-        handler.<Player>register("deny", "Deny join request/Отклонить запрос на вступление в команду",   (args, player) -> {
-            menuManager.showDenyMenu((Player) player);
-        });
+        CommandHandler.CommandRunner<Player> denyCom = (args, player) -> menuManager.showDenyMenu(player);
 
-        handler.<Player>register("top", "Show a leaderboard/Показать лидерборд игроков",   (args, player) -> {
-            menuManager.showLeaderBoard((Player) player);
-        });
+        CommandHandler.CommandRunner<Player> topCom = (args, player) -> menuManager.showLeaderBoard(player);
 
-        handler.<Player>register("rank", "Check leaderboard position/Узнать место в топе",   (args, player) -> {
+        CommandHandler.CommandRunner<Player> rankCom = (args, player) -> {
             LeaderBoardManager.Player stats = LeaderBoardManager.getPlayerStats(player.uuid());
             if (stats == null) {
                 player.sendMessage(Localisation.local(player, "leaderboardPositionNotFound"));
@@ -316,22 +428,18 @@ public class Main extends Plugin {
                             Localisation.local(player, "StatisticsPosition") + " " + stats.position + "\n" +
                             Localisation.local(player, "StatisticsPoints") + " " + stats.points
             );
-        });
+        };
 
-        // Admin commands
-
-        // Force restart the game
-        handler.<Player>register("forcerestart", "Force restart the game", (args, player) -> {
+        CommandHandler.CommandRunner<Player> forceCom = (args, player) -> {
             if (!player.admin()) {
                 player.sendMessage("[red]Access denied.");
                 return;
             }
             Restart.DoingRestart();
-        });
+        };
 
-        // Change team for yourself or another player
-        handler.<Player>register("changeteam", "Changes specified player's team.(Yours if player is unspecified.)", (args, player) -> {
-           if (!player.admin()) {
+        CommandHandler.CommandRunner<Player> cTeamCom = (args, player) -> {
+            if (!player.admin()) {
                player.sendMessage("[red]Access denied.");
                return;
            }
@@ -367,7 +475,24 @@ public class Main extends Plugin {
                default:
                    player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
            }
-        });
+        };
+
+        ///And finally registering commands with previous logic(kill me please)
+        helpEntries.clear();
+        addCommand(handler,"Restart the game/Перезапустить игру", restartCom, "restart", "rc");
+        addCommand(handler, "Destroy your building/Уничтожить строение", destroyCom, "destroy", "dr");
+        addCommand(handler, "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей", spectateCom, "spectate", "s", "gg", "die");
+        addCommand(handler, "Team management/Управление командой", teamCom, "team", "t");
+        addCommand(handler, "Join other team/Присоедениться к другой команде", joinCom, "join", "j");
+        addCommand(handler, "Accept join request/Принять игрока в команду", acceptCom, "accept", "a");
+        addCommand(handler, "Deny join request/Отклонить запрос на вступление в команду", denyCom, "deny", "d");
+        addCommand(handler, "Show a leaderboard/Показать лидерборд игроков", topCom, "top", "leaderboard", "lb");
+        addCommand(handler, "Check leaderboard position/Узнать место в топе", rankCom, "rank", "place", "pl");
+        addCommand(handler, "[ADMIN ONLY]Force restart the game", forceCom, "forcerestart", "frestart", "force");
+        addCommand(handler, "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
+        handler.register("help", "[page]", "Commands", this::sendHelp);
+
+
 
 
     }
@@ -408,13 +533,16 @@ public class Main extends Plugin {
 
     //Now it checks only cores, no all the buildings over the map
     private boolean nearAnyCore(Tile tile, float distance) {
+        int allCores = 0;
         float x = tile.worldx(), y = tile.worldy();
         float radius = distance * tilesize;
         for (Teams.TeamData data : state.teams.active) {
             for (CoreBlock.CoreBuild core : data.cores) {
                 if (core.within(x, y, radius)) return true;
+                allCores++;
             }
         }
+        if (allCores == 0) return true;
         return false;
     }
 
@@ -430,5 +558,62 @@ public class Main extends Plugin {
             }
         }
         return !nearAnyCore(tile, minCoreDistance);
+    }
+
+    private void addCommand(CommandHandler handler, String description, CommandHandler.CommandRunner<Player> logic, String... names){
+        helpEntries.add(new HelpEntry(description, names));
+        for (String name : names) {
+            handler.register(name, description, logic);
+        }
+    }
+
+    public static class HelpEntry{
+        final String[] names;
+        final String description;
+        HelpEntry(String description, String... names){
+            this.description = description;
+            this.names = names;
+        }
+    }
+
+    private void sendHelp(String[] args, Player player){
+        int commaPerPage = 15;
+        int pages = Math.max(1, Mathf.ceil(helpEntries.size / (float) commaPerPage));
+        int page = 1;
+
+        if (args.length > 0) {
+            if (!Strings.canParseInt(args[0])) {
+                player.sendMessage("[scarlet]Page is number.");
+                return;
+            }
+            page = Strings.parseInt(args[0]);
+        }
+
+        if (page < 1 || page > pages) {
+            player.sendMessage("[scarlet]Wrong page.");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("[orange]-- Page ").append(page).append('/').append(pages).append(" --\n");
+
+        int start = (page - 1) * commaPerPage;
+        int end = Math.min(start + commaPerPage, helpEntries.size);
+
+        for (int i = start; i < end; i++) {
+            HelpEntry entry = helpEntries.get(i);
+
+            ///"/play, /p": commands are orange, the comma is white
+            sb.append("[orange]");
+            for (int n = 0; n < entry.names.length; n++) {
+                if (n > 0) sb.append("[white], [orange]");
+                sb.append('/').append(entry.names[n]);
+            }
+
+            ///" - description" is white
+            sb.append("[white] - ").append(entry.description).append('\n');
+        }
+
+        player.sendMessage(sb.toString());
     }
 }
