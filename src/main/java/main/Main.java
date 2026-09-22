@@ -358,6 +358,59 @@ public class Main extends Plugin {
                             Localisation.local(player, "StatisticsPoints") + " " + stats.points
             );
         });
+
+        // Admin commands
+
+        // Force restart the game
+        handler.<Player>register("forcerestart", "Force restart the game", (args, player) -> {
+            if (!player.admin()) {
+                player.sendMessage("[red]Access denied.");
+                return;
+            }
+            Restart.DoingRestart();
+        });
+
+        // Change team for yourself or another player
+        handler.<Player>register("changeteam", "Changes specified player's team.(Yours if player is unspecified.)", (args, player) -> {
+           if (!player.admin()) {
+               player.sendMessage("[red]Access denied.");
+               return;
+           }
+           switch(args.length) {
+               case 1:
+                   try {
+                       Team team = Team.all[Integer.parseInt(args[0])];
+                       player.team(team);
+                   } catch (Exception e) {
+                       player.sendMessage("[red]Invalid team ID.");
+                       player.sendMessage("[yellow]Available teams:");
+                       Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
+                       return;
+                   }
+               case 2:
+                   try {
+                       Team team = Team.all[Integer.parseInt(args[0])];
+                       String targetName = args[1].toLowerCase();
+                       try {
+                           Player target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
+                           if (target == null) throw new IllegalArgumentException("Player not found.");
+                           target.team(team);
+                       } catch (Exception e) {
+                           player.sendMessage("[red]Invalid player name.");
+                           return;
+                       }
+                   } catch (Exception e) {
+                       player.sendMessage("[red]Invalid team ID.");
+                       player.sendMessage("[yellow]Available teams:");
+                       Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
+                       return;
+                   }
+               default:
+                   player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
+           }
+        });
+
+
     }
 
     public void registerServerCommands(CommandHandler handler) {
