@@ -3,6 +3,7 @@ package main;
 import arc.math.Mathf;
 import arc.struct.Seq;
 import arc.util.Strings;
+import mindustry.Vars;
 import mindustry.content.Items;
 import mindustry.core.GameState;
 import mindustry.entities.Units;
@@ -372,6 +373,10 @@ public class Main extends Plugin {
 //                   player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
 //           }
 //        });
+
+
+
+
         ///Here are CommandLogics
         CommandHandler.CommandRunner<Player> restartCom =(args, player) -> {
             if(Groups.player.size() == 1) Restart.DoingRestart();
@@ -533,16 +538,13 @@ public class Main extends Plugin {
 
     //Now it checks only cores, no all the buildings over the map
     private boolean nearAnyCore(Tile tile, float distance) {
-        int allCores = 0;
         float x = tile.worldx(), y = tile.worldy();
         float radius = distance * tilesize;
         for (Teams.TeamData data : state.teams.active) {
             for (CoreBlock.CoreBuild core : data.cores) {
                 if (core.within(x, y, radius)) return true;
-                allCores++;
             }
         }
-        if (allCores == 0) return true;
         return false;
     }
 
@@ -554,7 +556,7 @@ public class Main extends Plugin {
             for (int j = y - 2; j <= (y+2); j++) {
                 Tile curTile = world.tile(i,j);
                 if (curTile == null || curTile.floor() == null
-                        || !curTile.floor().solid || !curTile.block().isAir()) return false;
+                        || curTile.floor().solid || !curTile.block().isAir()) return false;
             }
         }
         return !nearAnyCore(tile, minCoreDistance);
