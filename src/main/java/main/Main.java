@@ -306,24 +306,16 @@ public class Main extends Plugin {
             }
         });
 
-        handler.<Player>register("spectate", "Destroys all your buildings and sends you to speactators/Уничтожает все постройки команды и переводит в наблюдателей",
-                (args, player) -> {
-                    Team playerTeam = player.team();
-                    if (playerTeam == Team.all[0]) return;
-                    boolean isLeader = false;
-                    TeamInfo info = Cache.teamsInfo.get(playerTeam);
-                    if (info != null && info.getLeaderUuid() != null) {
-                        if (info.getLeaderUuid().equals(player.uuid())) {
-                            isLeader = true;
-                        }
-                    }
-                    if (isLeader) {
-                        TeamDestroyTracker.surrenderTeam(playerTeam);
-                    } else {
-                        player.team(Team.all[0]);
-                        if (player.unit() != null) player.unit().kill();
-                    }
-                });
+
+
+        handler.<Player>register("spectate", "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей",
+                (args, player) -> spectateCommand(player));
+        handler.<Player>register("gg", "/spectate alias",
+                (args, player) -> spectateCommand(player));
+        handler.<Player>register("die", "/spectate alias",
+                (args, player) -> spectateCommand(player));
+        handler.<Player>register("s", "/spectate alias",
+                (args, player) -> spectateCommand(player));
 
         handler.<Player>register("team", "Team management/Управление командой", (args, player) -> {
             String[][] buttons = {
