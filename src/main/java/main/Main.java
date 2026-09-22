@@ -37,13 +37,18 @@ public class Main extends Plugin {
         // Setting up server name and MOTD
         Administration.Config.serverName.set("[#5F9EA0]Foundation PvP");
         Administration.Config.motd.set("");
-        // Starting the server
-        Events.on(EventType.WorldLoadBeginEvent.class, event -> Log.info("world load"));
-        // Initializing the cache of teamleaders
-//        for (Team team : Team.all) {
-//            Cache.teamsInfo.put(team, new TeamInfo());
-//        }
-        //removed because Team.all returns all 256 teams instead of active ones
+        // On world load beginning.
+        Events.on(EventType.WorldLoadBeginEvent.class, event -> {
+            Log.info("World's loading has begun.");
+            state.rules.loadout.clear();
+            Log.info("Cleared out previous loadout rules.");
+            state.rules.loadout.add(new ItemStack(Items.copper, 600));
+            state.rules.loadout.add(new ItemStack(Items.lead, 600));
+            state.rules.loadout.add(new ItemStack(Items.metaglass, 100));
+            state.rules.loadout.add(new ItemStack(Items.beryllium, 100));
+            Log.info("Modified loadout rules.");
+            Log.info("Current loadout should be: 600 copper, 600 lead, 100 metaglass, 100 beryllium.");
+        });
 
         MapVote.init();
         menuManager = new MenuManager();
