@@ -457,4 +457,18 @@ public class Main extends Plugin {
         }
         return false;
     }
+
+    private boolean isValidSpawn(Tile tile, float minCoreDistance) {
+        int x = tile.x, y = tile.y;
+        // 5x5 area check instead of one tile check.
+        // sadly no more walls breaking.
+        for (int i = x - 2; i < (x+2); i++) {
+            for (int j = y - 2; j < (y+2); j++) {
+                Tile curTile = world.tile(i,j);
+                if (curTile == null || curTile.floor() == null
+                        || !curTile.floor().solid || !curTile.block().isAir()) return false;
+            }
+        }
+        return !nearAnyCore(tile, minCoreDistance);
+    }
 }
