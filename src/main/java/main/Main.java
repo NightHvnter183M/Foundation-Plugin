@@ -412,6 +412,24 @@ public class Main extends Plugin {
 
 
     }
+    private static void spectateCommand(Player player) {
+        Team playerTeam = player.team();
+        if (playerTeam == Team.all[0]) return;
+        boolean isLeader = false;
+        TeamInfo info = Cache.teamsInfo.get(playerTeam);
+        if (info != null && info.getLeaderUuid() != null) {
+            if (info.getLeaderUuid().equals(player.uuid())) {
+                isLeader = true;
+            }
+        }
+        if (isLeader) {
+            TeamDestroyTracker.surrenderTeam(playerTeam);
+        } else {
+            player.team(Team.all[0]);
+            if (player.unit() != null) player.unit().kill();
+        }
+    }
+
 
     public void registerServerCommands(CommandHandler handler) {
         // Register commands for server here
