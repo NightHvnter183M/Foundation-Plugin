@@ -228,19 +228,23 @@ public class Main extends Plugin {
         Administration.Config.desc.set(motd);
     }
 
-    private void giveStartingResources(Team team){
-        int bonus = getTeamResourceBonus();
-        // Null-check is necessary.
+    private void giveStartingResources(Team team){// Null-check is necessary.
         if (team.core() == null) return;
-        team.core().items.add(Items.copper, bonus + 600);
-        team.core().items.add(Items.lead, bonus);
-        if (maxTime < 150) team.core().items.add(Items.graphite, Math.max(0, bonus - 200));
-        if (maxTime < 150) team.core().items.add(Items.beryllium, Math.max(0, bonus - 200));
-        if (maxTime < 300) team.core().items.add(Items.silicon, Math.max(0, bonus - 200));
-        if (maxTime < 300) team.core().items.add(Items.metaglass, Math.max(0, bonus - 200));
-        if (maxTime < 600) team.core().items.add(Items.titanium, Math.max(0, bonus - 500));
-        if (maxTime < 900) team.core().items.add(Items.thorium, Math.max(0, bonus - 1000));
-        if (maxTime < 900) team.core().items.add(Items.plastanium, Math.max(0, bonus - 1000));
+        team.core().items.set(Items.copper, 600);
+        team.core().items.set(Items.lead, 600);
+        team.core().items.set(Items.metaglass, 100);
+        team.core().items.set(Items.beryllium, 100);
+        // It wasn't working anyways iirc lol
+//        int bonus = getTeamResourceBonus();
+//        team.core().items.add(Items.copper, bonus + 600);
+//        team.core().items.add(Items.lead, bonus);
+//        if (maxTime < 150) team.core().items.add(Items.graphite, Math.max(0, bonus - 200));
+//        if (maxTime < 150) team.core().items.add(Items.beryllium, Math.max(0, bonus - 200));
+//        if (maxTime < 300) team.core().items.add(Items.silicon, Math.max(0, bonus - 200));
+//        if (maxTime < 300) team.core().items.add(Items.metaglass, Math.max(0, bonus - 200));
+//        if (maxTime < 600) team.core().items.add(Items.titanium, Math.max(0, bonus - 500));
+//        if (maxTime < 900) team.core().items.add(Items.thorium, Math.max(0, bonus - 1000));
+//        if (maxTime < 900) team.core().items.add(Items.plastanium, Math.max(0, bonus - 1000));
     }
     private int getTeamResourceBonus() {
         int elapsed = 10800 - maxTime;
@@ -250,137 +254,9 @@ public class Main extends Plugin {
                 elapsed / 600 * 1000
         );
     }
+
+
     public void registerClientCommands(CommandHandler handler) {
-        // It all will be remade with Alias and HelpEntry(for better UX)
-//        handler.<Player>register("restart", "Restart the game/Перезапустить игру", (args, player) -> {
-//            if(Groups.player.size() == 1) Restart.DoingRestart();
-//            else Restart.AddVotes(player);
-//
-//        });
-//        handler.<Player>register("destroy", "Destroy your building/Уничтожить строение", (args, player) -> {
-//            Tile tile = player.tileOn();
-//            Team playerTeam = player.team();
-//            if (tile.build == null || tile.build.team == player.team()) return;
-//            tile.build.kill();
-//            if (!playerTeam.cores().isEmpty()) return;
-//            TeamDestroyTracker.surrenderTeam(playerTeam);
-//            if(player.unit() != null) player.unit().kill();
-//            Groups.player.each(p -> p.team() == playerTeam, p -> {
-//                p.team(Team.all[0]);
-//                if (Cache.teamsInfo.containsKey(playerTeam)) {
-//                    Cache.teamsInfo.get(playerTeam).setLeaderUuid("");
-//                }
-//            });
-//        });
-//
-//
-//
-//        handler.<Player>register("spectate", "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей",
-//                (args, player) -> spectateCommand(player));
-//        handler.<Player>register("gg", "/spectate alias",
-//                (args, player) -> spectateCommand(player));
-//        handler.<Player>register("die", "/spectate alias",
-//                (args, player) -> spectateCommand(player));
-//        handler.<Player>register("s", "/spectate alias",
-//                (args, player) -> spectateCommand(player));
-//
-//        handler.<Player>register("team", "Team management/Управление командой", (args, player) -> {
-//            String[][] buttons = {
-//                    { Localisation.local(player, "teamMenuJoinButton") },
-//                    { Localisation.local(player, "teamMenuAcceptButton") },
-//                    { Localisation.local(player, "teamMenuKickButton") },
-//                    { Localisation.local(player, "teamMenuDenyButton") },
-//                    { Localisation.local(player, "teamMenuLeadButton") },
-//                    { Localisation.local(player, "menuCloseButton") },
-//            };
-//            // Open the team management menu for the player
-//            Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
-//        });
-//
-//        handler.<Player>register("join", "Join other team/Присоедениться к другой команде",  (args, player) -> {
-//            menuManager.showJoinMenu((Player) player);
-//        });
-//
-//        handler.<Player>register("accept", "Accept join request/Принять игрока в команду",  (args, player) -> {
-//            menuManager.showAcceptMenu((Player) player);
-//        });
-//
-//        handler.<Player>register("deny", "Deny join request/Отклонить запрос на вступление в команду",   (args, player) -> {
-//            menuManager.showDenyMenu((Player) player);
-//        });
-//
-//        handler.<Player>register("top", "Show a leaderboard/Показать лидерборд игроков",   (args, player) -> {
-//            menuManager.showLeaderBoard((Player) player);
-//        });
-//
-//        handler.<Player>register("rank", "Check leaderboard position/Узнать место в топе",   (args, player) -> {
-//            LeaderBoardManager.Player stats = LeaderBoardManager.getPlayerStats(player.uuid());
-//            if (stats == null) {
-//                player.sendMessage(Localisation.local(player, "leaderboardPositionNotFound"));
-//                return;
-//            }
-//            player.sendMessage(
-//                    Localisation.local(player, "StatisticsMessage") + "\n" +
-//                            Localisation.local(player, "StatisticsPosition") + " " + stats.position + "\n" +
-//                            Localisation.local(player, "StatisticsPoints") + " " + stats.points
-//            );
-//        });
-//
-//        // Admin commands
-//
-//        // Force restart the game
-//        handler.<Player>register("forcerestart", "Force restart the game", (args, player) -> {
-//            if (!player.admin()) {
-//                player.sendMessage("[red]Access denied.");
-//                return;
-//            }
-//            Restart.DoingRestart();
-//        });
-//
-//        // Change team for yourself or another player
-//        handler.<Player>register("changeteam", "Changes specified player's team.(Yours if player is unspecified.)", (args, player) -> {
-//           if (!player.admin()) {
-//               player.sendMessage("[red]Access denied.");
-//               return;
-//           }
-//           switch(args.length) {
-//               case 1:
-//                   try {
-//                       Team team = Team.all[Integer.parseInt(args[0])];
-//                       player.team(team);
-//                   } catch (Exception e) {
-//                       player.sendMessage("[red]Invalid team ID.");
-//                       player.sendMessage("[yellow]Available teams:");
-//                       Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
-//                       return;
-//                   }
-//               case 2:
-//                   try {
-//                       Team team = Team.all[Integer.parseInt(args[0])];
-//                       String targetName = args[1].toLowerCase();
-//                       try {
-//                           Player target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
-//                           if (target == null) throw new IllegalArgumentException("Player not found.");
-//                           target.team(team);
-//                       } catch (Exception e) {
-//                           player.sendMessage("[red]Invalid player name.");
-//                           return;
-//                       }
-//                   } catch (Exception e) {
-//                       player.sendMessage("[red]Invalid team ID.");
-//                       player.sendMessage("[yellow]Available teams:");
-//                       Cache.playerTeams.forEach(entry -> player.sendMessage("[yellow]" + entry.value.id));
-//                       return;
-//                   }
-//               default:
-//                   player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
-//           }
-//        });
-
-
-
-
-        ///Here are CommandLogics
         CommandHandler.CommandRunner<Player> restartCom =(args, player) -> {
             if(Groups.player.size() == 1) Restart.DoingRestart();
             else Restart.AddVotes(player);
