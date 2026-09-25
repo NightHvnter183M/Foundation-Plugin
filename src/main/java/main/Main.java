@@ -368,7 +368,7 @@ public class Main extends Plugin {
            }
         };
 
-        ///And finally registering commands with previous logic(kill me please)
+        ///And finally registering commands with previous logic(kill me, please)
         helpEntries.clear();
         addCommand(handler,"Restart the game/Перезапустить игру", restartCom, "restart", "rc");
         addCommand(handler, "Destroy your building/Уничтожить строение", destroyCom, "destroy", "dr");
@@ -380,7 +380,7 @@ public class Main extends Plugin {
         addCommand(handler, "Show a leaderboard/Показать лидерборд игроков", topCom, "top", "leaderboard", "lb");
         addCommand(handler, "Check leaderboard position/Узнать место в топе", rankCom, "rank", "place", "pl");
         addCommand(handler, "[ADMIN ONLY]Force restart the game", forceCom, "forcerestart", "frestart", "force");
-        addCommand(handler, "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
+        addCommand(handler,"<teamID> [player]" , "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
         handler.register("help", "[page]", "Commands", this::sendHelp);
 
 
@@ -464,6 +464,12 @@ public class Main extends Plugin {
         helpEntries.add(new HelpEntry(description, names));
         for (String name : names) {
             handler.register(name, description, logic);
+        }
+    }
+    private void addCommand(CommandHandler handler, String params, String description, CommandHandler.CommandRunner<Player> logic, String... names){
+        helpEntries.add(new HelpEntry(description, names));
+        for (String name : names) {
+            handler.register(name, params, description, logic);
         }
     }
 
