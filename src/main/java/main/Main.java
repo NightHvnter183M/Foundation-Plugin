@@ -172,7 +172,12 @@ public class Main extends Plugin {
         });
         // Replacing vault with core sharped
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
-            if (event.breaking || event.tile.block() != Blocks.vault) return;
+            if (event.breaking || event.tile == null || event.tile.block() == null) return;
+            if (event.tile.block() == Blocks.coreNucleus || event.tile.block() == Blocks.coreFoundation) {
+                event.team.data().unitCap = Math.min(event.team.data().unitCap, 500);
+                return;
+            }
+            if (event.tile.block() != Blocks.vault) return;
 
             boolean close = false;
             float minDist = 150f;
@@ -182,6 +187,7 @@ public class Main extends Plugin {
             if (nearEnemyCore(tile, minDist, builderTeam)) return;
 
             Time.run(1f, () -> tile.setNet(Blocks.coreShard, builderTeam, 0));
+            event.team.data().unitCap = Math.min(event.team.data().unitCap, 500);
         });
         //Killing team is now in teamDestroyTracker.java
         Events.on(EventType.PlayEvent.class, event -> {
