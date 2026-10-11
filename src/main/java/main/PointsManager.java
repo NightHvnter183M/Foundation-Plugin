@@ -1,6 +1,7 @@
 package main;
 
 import arc.struct.ObjectIntMap;
+import arc.struct.Seq;
 import mindustry.content.Blocks;
 import mindustry.content.UnitTypes;
 import mindustry.game.Team;
@@ -33,33 +34,50 @@ public class PointsManager {
             unitScores.put(u, 16);
         }
     }
-    public void pointCounter(Team teamDestroyer, Team teamVictim) {
-        if (teamDestroyer == teamVictim) return;
-        if (teamDestroyer == Team.derelict) return;
-        float pointsDestroyer = calculateTeamRating(teamDestroyer);
-        float pointsVictim = calculateTeamRating(teamVictim);
-        float ratio = pointsVictim / pointsDestroyer;
-        int finalPoints = Math.abs(Math.round(ratio * 100f / teamDestroyer.data().players.size));
-        Groups.player.each(p -> p.team() == teamDestroyer, p -> {
-            p.sendMessage((Localisation.local(p, "teamEliminationMessage")) + " " + finalPoints);
-            LeaderBoardManager.addPoints(p.uuid(), p.name(), finalPoints);
-        });
+
+    ///Holding rating of every alive team
+    public static void updateRatings() {
+        for (var entry : Cache.teamsInfo) {
+            if (TeamDestroyTracker.hasMainCore(entry.key)) {
+                entry.value.setRating(calculateTeamRating(entry.key));
+            }
+        }
     }
 
-    private float calculateTeamRating(Team team) {
+    public static void pointCounter(Team teamDestroyer, Team teamVictim) {
+        if (teamDestroyer == null || teamDestroyer == teamVictim) return;
+        if (teamDestroyer == Team.derelict) return;
+
+        float pointsDestroyer = Math.max(1f, calculateTeamRating(teamDestroyer));
+        // By now the victim has already lost its main cores, so use the rating it had while alive
+        float pointsVictim = calculateTeamRating(teamVictim);
+        TeamInfo victimInfo = Cache.teamsInfo.get(teamVictim);
+        if (victimInfo != null) {
+            pointsVictim = Math.max(pointsVictim, victimInfo.getRating());
+        }
+
+        int players = Math.max(1, teamDestroyer.data().players.size);
+        int finalPoints = Math.round(pointsVictim / pointsDestroyer * 100f / players);
+
+        Seq<LeaderBoardManager.PointsEntry> entries = new Seq<>();
+        Groups.player.each(p -> p.team() == teamDestroyer, p -> {
+            p.sendMessage((Localisation.local(p, "teamEliminationMessage")) + " " + finalPoints);
+            entries.add(new LeaderBoardManager.PointsEntry(p.uuid(), p.name(), finalPoints));
+        });
+        LeaderBoardManager.addPoints(entries);
+    }
+
+    private static float calculateTeamRating(Team team) {
         float points = 0f;
         //Calculating core's points
-        int valueAtoms = team.cores().count(c -> c.block == Blocks.coreNucleus);
-        int valueFoundation = team.cores().count(c -> c.block == Blocks.coreFoundation);
-        int valueShard = team.cores().count(c -> c.block == Blocks.coreShard);
-        points += valueAtoms * 10f;
-        points += valueFoundation * 5f;
-        points += valueShard * 1f;
-        //Calculating unit's points
-        for (Unit u : Groups.unit) {
-            if (u.team == team) {
-                points += unitScores.get(u.type, 0);
-            }
+        for (var core : team.cores()) {
+            if (core.block == Blocks.coreNucleus) points += 10f;
+            else if (core.block == Blocks.coreFoundation) points += 5f;
+            else if (core.block == Blocks.coreShard) points += 1f;
+        }
+        //Calculating unit's points (the team keeps its own unit list, no need to scan every unit)
+        for (Unit u : team.data().units) {
+            points += unitScores.get(u.type, 0);
         }
         return points;
     }

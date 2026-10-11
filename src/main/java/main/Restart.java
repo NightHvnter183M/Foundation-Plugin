@@ -52,5 +52,11 @@ public class Restart {
         Groups.player.each(p -> p.team(Team.all[0]));
     }
 
+    public static void reset(){
+        IsRestartVoting = false;
+        if (voteTask != null) voteTask.cancel();
+        voteTask = null;
+        Cache.restartVotes.clear();
+    }
 
 }

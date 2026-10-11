@@ -12,5 +12,5 @@ public class Cache {
     public static ObjectMap<Team, TeamInfo> teamsInfo = new ObjectMap<>();
     public static ObjectMap<String, String> teamRequests = new ObjectMap<>();
     public static ObjectSet<String> restartVotes = new ObjectSet<>();
-    public static ObjectIntMap<Integer> votes = new ObjectIntMap<>();
+    public static ObjectIntMap<String> votes = new ObjectIntMap<>();
 }

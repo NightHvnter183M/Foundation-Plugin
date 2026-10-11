@@ -8,6 +8,7 @@ import mindustry.content.Blocks;
 import mindustry.content.UnitTypes;
 import mindustry.entities.Units;
 import mindustry.entities.units.AIController;
+import mindustry.entities.units.UnitController;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.gen.Teamc;
@@ -18,17 +19,24 @@ public class DynamicCruxAi {
 
     public static class dynamicCruxAI extends AIController {
 
+        // The centre of the enemy main cores is the same for every crux unit,
+        // so it is computed once per stratUpdateTime for all of them.
+        private static final Vec2 strategicCenter = new Vec2();
+        private static double centerUpdatedAt = -1;
+        private static int centerVersion;
+
         private Teamc currentTarget;
         private Tile spawnPoint;
         private final Vec2 laneDestination = new Vec2();
-        private final Vec2 strategicCenter = new Vec2();
-
-        private boolean laneInitialized = false;
-        private final Interval timer = new Interval(2);
+        private int laneVersion = -1;
+        // not called "timer": that would hide AIController.timer, which the base class uses for retargeting
+        private final Interval aiTimer = new Interval(1);
         private static final float targetUpdateTime = 30f;
+        private static final float idleSearchTime = 15f;
         private static final float stratUpdateTime = 120f;
         private static final float aggRad = 500f;
-        private static final float tSwitchMult = 1.30f;
+        private static final float switchMargin = 150f;
+        private static final float directApproach = 80f;
         private static final float mLaneAngle = 65f;
         private static final float lBonus = 500f;
         private static final float wLane = 350f;
@@ -40,60 +48,87 @@ public class DynamicCruxAi {
         public void init() {
             super.init();
             spawnPoint = getClosestSpawner();
-            updateStrategicCenter();
-            if (spawnPoint != null) {
-                updateLaneDestination();
-                laneInitialized = true;
-            }
+            refreshLane();
         }
+
+        // Lanes and straight-line approach don't suit naval units, the vanilla AI handles them better
+        @Override
+        public boolean useFallback() {
+            return unit != null && unit.type.naval;
+        }
+
+        @Override
+        public AIController fallback() {
+            UnitController controller = unit.type.aiController.get();
+            return controller instanceof AIController ai ? ai : null;
+        }
+
         @Override
         public void updateMovement() {
 
             if (unit == null || unit.dead) {
                 return;
             }
-            if (!laneInitialized) {
+            if (spawnPoint == null) {
                 spawnPoint = getClosestSpawner();
-                if (spawnPoint != null) {
-                    updateStrategicCenter();
-                    updateLaneDestination();
-                    laneInitialized = true;
-                }
             }
-            if (timer.get(1, stratUpdateTime)) {
-                updateStrategicCenter();
-                if (spawnPoint != null) {
-                    updateLaneDestination();
-                }
-            }
+            refreshLane();
+
             if (!isValidTarget(currentTarget)) {
-                currentTarget = findBestTarget();
-            } else if (timer.get(0, targetUpdateTime)) {
-                Teamc newTarget = findBestTarget();
-                if (newTarget != null && shouldSwitchTarget(newTarget)) {
-                    currentTarget = newTarget;
+                currentTarget = null;
+            }
+            // Searched on a timer even when there is no target: findBestTarget() can scan the whole map
+            if (aiTimer.get(0, currentTarget == null ? idleSearchTime : targetUpdateTime)) {
+                Teamc candidate = findBestTarget();
+                if (currentTarget == null) {
+                    currentTarget = candidate;
+                } else if (candidate != null && candidate != currentTarget
+                        && scoreTarget(candidate) > scoreTarget(currentTarget) + switchMargin) {
+                    // an additive margin: "score * 1.3" switched to worse targets when scores were negative
+                    currentTarget = candidate;
                 }
             }
 
-            target = currentTarget;
-            if (currentTarget != null) {
-                float attackRange = getAttackRange();
-                if (unit.isFlying()) {
-                    updateFlyingMovement(currentTarget, attackRange);
-                } else {
-                    updateGroundMovement(currentTarget, attackRange);
-                }
-            } else {
+            if (currentTarget == null) {
                 advanceAlongLane();
+                return;
             }
-            updateWeapons();
+
+            // Weapons are aimed by AIController.updateWeapons() (see findMainTarget below)
+            if (unit.within(currentTarget, unit.type.range)) {
+                target = currentTarget;
+            }
+
+            float attackRange = getAttackRange();
+            if (unit.isFlying()) {
+                updateFlyingMovement(currentTarget, attackRange);
+            } else {
+                updateGroundMovement(currentTarget, attackRange);
+            }
         }
-        private void updateStrategicCenter() {
+
+        // The base AI picks a new main target every 40-90 ticks; keep it on ours while it is in range
+        @Override
+        public Teamc findMainTarget(float x, float y, float range, boolean air, boolean ground) {
+            if (isValidTarget(currentTarget) && currentTarget.within(x, y, range)) {
+                return currentTarget;
+            }
+            return super.findMainTarget(x, y, range, air, ground);
+        }
+
+        private static void updateStrategicCenter() {
+            double now = Vars.state.tick;
+            if (centerUpdatedAt >= 0 && now >= centerUpdatedAt && now - centerUpdatedAt < stratUpdateTime) {
+                return;
+            }
+            centerUpdatedAt = now;
+            centerVersion++;
+
             float totalX = 0f;
             float totalY = 0f;
             int count = 0;
             for (var data : Vars.state.teams.getActive()) {
-                if (!isEnemyTeam(data.team)) {
+                if (!TeamInfo.isPlayerTeam(data.team)) {
                     continue;
                 }
                 for (var core : data.cores) {
@@ -115,6 +150,15 @@ public class DynamicCruxAi {
             }
             strategicCenter.set(Vars.world.width() * Vars.tilesize / 2f, Vars.world.height() * Vars.tilesize / 2f);
         }
+
+        private void refreshLane() {
+            updateStrategicCenter();
+            if (spawnPoint != null && laneVersion != centerVersion) {
+                updateLaneDestination();
+                laneVersion = centerVersion;
+            }
+        }
+
         private void updateLaneDestination() {
 
             if (spawnPoint == null) {
@@ -139,7 +183,7 @@ public class DynamicCruxAi {
 
         private void advanceAlongLane() {
 
-            if (!laneInitialized) {
+            if (spawnPoint == null) {
                 if (!unit.isFlying()) {
                     pathfind(Pathfinder.fieldCore);
                 }
@@ -149,31 +193,28 @@ public class DynamicCruxAi {
             moveTo(laneDestination, 20f);
         }
 
-        private void updateGroundMovement(
-                Teamc target,
-                float attackRange
-        ) {
+        private void updateGroundMovement(Teamc goal, float attackRange) {
 
-            if (!isValidTarget(target)) {
-                return;
-            }
             faceTarget();
-            moveTo(target, attackRange);
+            // moveTo() goes in a straight line and gets stuck on walls, so a distant target is
+            // approached through the flow field, which leads around obstacles to the nearest enemy core
+            if (unit.within(goal, attackRange + directApproach)) {
+                moveTo(goal, attackRange);
+            } else {
+                pathfind(Pathfinder.fieldCore);
+            }
         }
 
-        private void updateFlyingMovement(Teamc target, float attackRange) {
-            if (!isValidTarget(target)) {
-                return;
-            }
+        private void updateFlyingMovement(Teamc goal, float attackRange) {
 
             if (unit.type == UnitTypes.flare || unit.type == UnitTypes.horizon || unit.type == UnitTypes.quad) {
-                moveTo(target, 0f);
+                moveTo(goal, 0f);
                 faceTarget();
                 return;
             }
 
             if (unit.type == UnitTypes.zenith) {
-                moveTo(target, attackRange * 0.7f);
+                moveTo(goal, attackRange * 0.7f);
                 faceTarget();
                 return;
             }
@@ -181,10 +222,10 @@ public class DynamicCruxAi {
             if (unit.type.circleTarget) {
                 float radiusOffset = (unit.id % 5) * 12f;
                 float orbitRadius = Math.max(attackRange * 0.75f, 35f) + radiusOffset;
-                circle(target, orbitRadius);
+                circle(goal, orbitRadius);
                 faceTarget();
             } else {
-                moveTo(target, Math.max(attackRange * 0.85f, 25f));
+                moveTo(goal, Math.max(attackRange * 0.85f, 25f));
                 faceTarget();
             }
         }
@@ -197,11 +238,7 @@ public class DynamicCruxAi {
             );
         }
         private boolean isEnemyTeam(Team team) {
-
-            if (team == null) {
-                return false;
-            }
-            return team.id > 5 && team != unit.team;
+            return TeamInfo.isPlayerTeam(team) && team != unit.team;
         }
         private boolean isValidTarget(Teamc target) {
 
@@ -256,19 +293,10 @@ public class DynamicCruxAi {
                 }
             }
             if (bestTarget == null) {
-
-                Building anyBuilding = Units.findEnemyTile(unit.team, unit.x, unit.y, Float.MAX_VALUE, tile -> isEnemyTeam(tile.team()));
-                if (anyBuilding != null) {
-                    float score = scoreTarget(anyBuilding);
-                    if (score > bestScore) bestScore = score;bestTarget = anyBuilding;
-                }
+                bestTarget = Units.findEnemyTile(unit.team, unit.x, unit.y, Float.MAX_VALUE, tile -> isEnemyTeam(tile.team()));
             }
             if (bestTarget == null) {
-                Unit anyUnit = Units.closest(null, unit.x, unit.y, Float.MAX_VALUE, u -> isValidTarget(u) && !u.dead);
-
-                if (anyUnit != null) {
-                    bestTarget = anyUnit;
-                }
+                bestTarget = Units.closest(null, unit.x, unit.y, Float.MAX_VALUE, u -> isValidTarget(u) && !u.dead);
             }
             return bestTarget;
         }
@@ -370,23 +398,6 @@ public class DynamicCruxAi {
             float alignment = 1f - Math.min(angle / mLaneAngle, 1f);
 
             return alignment;
-        }
-
-        private boolean shouldSwitchTarget(Teamc newTarget) {
-
-            if (!isValidTarget(newTarget)) {
-                return false;
-            }
-
-            if (!isValidTarget(currentTarget)) {
-                return true;
-            }
-
-            float currentScore = scoreTarget(currentTarget);
-
-            float newScore = scoreTarget(newTarget);
-
-            return newScore > currentScore * tSwitchMult;
         }
     }
 }

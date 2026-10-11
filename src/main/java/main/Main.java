@@ -3,7 +3,6 @@ package main;
 import arc.math.Mathf;
 import arc.struct.Seq;
 import arc.util.Strings;
-import mindustry.Vars;
 import mindustry.content.Items;
 import mindustry.core.GameState;
 import mindustry.entities.Units;
@@ -31,14 +30,15 @@ import java.util.Set;
 import static main.Cache.teamRequests;
 import static main.Resources.*;
 import static mindustry.Vars.*;
-import static mindustry.Vars.player;
 
 public class Main extends Plugin {
 
     private Boolean isPause = false;
     private MenuManager menuManager;
-    private static final Team DEFAULT_TEAM = Team.all[0];
+    private static final Team DEFAULT_TEAM = Team.derelict;
+    private static final float MIN_CORE_DISTANCE = 150f;
     private final Seq<HelpEntry> helpEntries = new Seq<>();
+    private String lastMotd;
 
     @Override
     public void init() {
@@ -46,18 +46,6 @@ public class Main extends Plugin {
         // Setting up server name and MOTD
         Administration.Config.serverName.set("[#5F9EA0]Foundation PvP");
         Administration.Config.motd.set("");
-        // On world load beginning.
-        Events.on(EventType.WorldLoadBeginEvent.class, event -> {
-            Log.info("World's loading has begun.");
-            state.rules.loadout.clear();
-            Log.info("Cleared out previous loadout rules.");
-            state.rules.loadout.add(new ItemStack(Items.copper, 600));
-            state.rules.loadout.add(new ItemStack(Items.lead, 600));
-            state.rules.loadout.add(new ItemStack(Items.metaglass, 100));
-            state.rules.loadout.add(new ItemStack(Items.beryllium, 100));
-            Log.info("Modified loadout rules.");
-            Log.info("Current loadout should be: 600 copper, 600 lead, 100 metaglass, 100 beryllium.");
-        });
 
         MapVote.init();
         menuManager = new MenuManager();
@@ -67,6 +55,25 @@ public class Main extends Plugin {
         Blocks.coreShard.unitCapModifier = 1;
         Blocks.coreFoundation.unitCapModifier = 2;
         Blocks.coreNucleus.unitCapModifier = 4;
+
+        // A joining player gets a team here, before the world is sent to them:
+        // their own team if it is still alive, otherwise spectators.
+        // (The vanilla PvP assigner would first put them into the team with the fewest players.)
+        netServer.assigner = (player, players) -> {
+            Team saved = Cache.playerTeams.get(player.uuid());
+            return saved != null && saved.active() ? saved : DEFAULT_TEAM;
+        };
+
+        // All of this belongs to one round: team ids are reused on the next map
+        Events.on(EventType.ResetEvent.class, event -> {
+            Cache.teamsInfo.clear();
+            Cache.teamRequests.clear();
+            Cache.playerTeams.clear();
+            menuManager.clear();
+            MapVote.reset();
+            Restart.reset();
+        });
+
         // setting up a timer to restart the game after maxTime seconds
         Time.runTask(0, new Runnable() {
             @Override
@@ -75,25 +82,19 @@ public class Main extends Plugin {
                 int hours = maxTime / 3600;
                 int minutes = (maxTime % 3600) / 60;
                 int seconds = (maxTime % 3600) % 60;
+                String timeDisplay = """
+                        [#5F9EA0]Foundation PvP
+                        [white]Time until end of round: %02d:%02d:%02d
+                        """.formatted(hours, minutes, seconds);
                 Groups.player.each(player -> {
                     Team team = player.team();
-                    if(team == Team.all[0]){
-                        String timeDisplay = """
-                [#5F9EA0]Foundation PvP
-                [white]Time until end of round: %02d:%02d:%02d
-                """.formatted(hours, minutes, seconds);
+                    if (team == DEFAULT_TEAM) {
                         Call.setHudText(player.con, timeDisplay);
-                    }
-                    else {
-                        int unitCap = Units.getCap(team);
-                        String timeDisplay = """
-                                [#5F9EA0]Foundation PvP
-                                [white]Time until end of round: %02d:%02d:%02d
-                                Max units: %d
-                                """.formatted(hours, minutes, seconds, unitCap);
-                        Call.setHudText(player.con, timeDisplay);
+                    } else {
+                        Call.setHudText(player.con, timeDisplay + "Max units: " + Units.getCap(team) + "\n");
                     }
                 });
+                PointsManager.updateRatings();
                 updateMOTD();
                 if (maxTime > 0) {
                     maxTime--;
@@ -110,15 +111,9 @@ public class Main extends Plugin {
             Groups.player.each(p -> p.team(Team.all[0]));
         });
 
-        // When a player joins the server
+        // When a player joins the server (their team was already chosen by netServer.assigner)
         Events.on(EventType.PlayerJoin.class, event -> {
-            // creating a new player info object and putting it in the cache
             Player pl = event.player;
-            Team savedTeam = Cache.playerTeams.get(pl.uuid());
-            if(savedTeam != null && !savedTeam.cores().isEmpty()) {
-                pl.team(savedTeam);
-            }else pl.team(DEFAULT_TEAM);
-
             menuManager.showGuide(pl);
             //unpausing server if it was paused
             if (isPause || state.isPaused()) {
@@ -130,15 +125,26 @@ public class Main extends Plugin {
         // When a player leaves the server
         Events.on(EventType.PlayerLeave.class, event -> {
             Player pl = event.player;
-            Cache.playerTeams.put(pl.uuid(), pl.team());
-            teamRequests.remove(event.player.uuid());
+            Team team = pl.team();
+            // Remember the team only while it is alive: later its id can be given to a new team
+            if (TeamInfo.isPlayerTeam(team) && team.active()) {
+                Cache.playerTeams.put(pl.uuid(), team);
+            } else {
+                Cache.playerTeams.remove(pl.uuid());
+            }
+            teamRequests.remove(pl.uuid());
+            menuManager.forget(pl);
+            // The leader left: an online teammate takes over (if nobody is online, the leader keeps the role)
+            TeamInfo info = Cache.teamsInfo.get(team);
+            if (info != null && info.isLeader(pl)) {
+                menuManager.passLeadership(team, pl);
+            }
             //pausing server
             if(Groups.player.size() == 1) {
                 state.set(GameState.State.paused);
                 isPause = true; //whyy?
                 Log.info("Server is paused");
             }
-            if (Cache.teamsInfo.get(pl.team()) != null) Cache.teamsInfo.get(pl.team()).removePlayer(pl);
         });
 
         Events.on(EventType.UnitSpawnEvent.class, event -> {
@@ -151,43 +157,47 @@ public class Main extends Plugin {
         Events.on(EventType.TapEvent.class, event -> {
             Player player = event.player;
             Tile tile = event.tile;
-            if (player.team() != Team.all[0] && player.team() != Team.all[1]) return;
-            if (!isValidSpawn(tile, 150f)) {
+            if (tile == null || player.team() != DEFAULT_TEAM) return;
+            if (!isValidSpawn(tile, MIN_CORE_DISTANCE)) {
                 player.sendMessage(Localisation.local(player, "tooCloseCoreWarning"));
+                return;
+            }
+            if (nearWaveSpawn(tile)) {
+                player.sendMessage(Localisation.local(player, "tooCloseSpawnWarning"));
                 return;
             }
 
             // creating a new team
             Team newTeam = takeNewTeam();
-            if (!Cache.teamsInfo.containsKey(newTeam)) {
-                Cache.teamsInfo.put(newTeam, new TeamInfo(player.uuid(), new Seq<Player>().add(player)));
+            if (newTeam == null) {
+                player.sendMessage(Localisation.local(player, "noFreeTeams"));
+                return;
             }
+            // Always a fresh TeamInfo: this id may have belonged to an eliminated team
+            Cache.teamsInfo.put(newTeam, new TeamInfo(player.uuid()));
             tile.setNet(Blocks.coreNucleus, newTeam, 0);
             Time.run(1f, () -> giveStartingResources(newTeam));
             player.team(newTeam);
-            if (Cache.teamsInfo.containsKey(newTeam)) {
-                TeamInfo info = Cache.teamsInfo.get(newTeam);
-                info.setLeaderUuid(player.uuid());
-            }
         });
         // Replacing vault with core sharped
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
             if (event.breaking || event.tile == null || event.tile.block() == null) return;
-            if (event.tile.block() == Blocks.coreNucleus || event.tile.block() == Blocks.coreFoundation) {
-                event.team.data().unitCap = Math.min(event.team.data().unitCap, 500);
-                return;
-            }
+//            if (event.tile.block() == Blocks.coreNucleus || event.tile.block() == Blocks.coreFoundation) {
+//                event.team.data().unitCap = Math.min(event.team.data().unitCap, 500);
+//                return;
+//            }
             if (event.tile.block() != Blocks.vault) return;
 
-            boolean close = false;
-            float minDist = 150f;
             Team builderTeam = event.team;
             Tile tile = event.tile;
 
-            if (nearEnemyCore(tile, minDist, builderTeam)) return;
+            if (nearEnemyCore(tile, MIN_CORE_DISTANCE, builderTeam)) return;
 
-            Time.run(1f, () -> tile.setNet(Blocks.coreShard, builderTeam, 0));
-            event.team.data().unitCap = Math.min(event.team.data().unitCap, 500);
+            Time.run(1f, () -> {
+                // During this tick the vault may have been removed or the team eliminated
+                if (tile.block() != Blocks.vault || tile.team() != builderTeam || !builderTeam.active()) return;
+                tile.setNet(Blocks.coreShard, builderTeam, 0);
+            });
         });
         //Killing team is now in teamDestroyTracker.java
         Events.on(EventType.PlayEvent.class, event -> {
@@ -206,7 +216,7 @@ public class Main extends Plugin {
             state.rules.unitPayloadUpdate = true;
             state.rules.reactorExplosions = true;
             state.rules.logicUnitBuild = true;
-            // loadout config moved onto worldloadbeginevent.
+            // starting items are given to every new core in giveStartingResources()
             Call.setRules(state.rules);
             Time.run(2f, () -> {
                 Groups.build.each(b -> b instanceof CoreBlock.CoreBuild, b -> b.tile.removeNet());
@@ -231,15 +241,26 @@ public class Main extends Plugin {
         int minutes = (maxTime % 3600) / 60;
         String timeString = String.format("%02d:%02d", hours, minutes);
         String motd = custommotd + timeString;
-        Administration.Config.desc.set(motd);
+        // Only hours:minutes are shown, so the text actually changes once a minute
+        if (!motd.equals(lastMotd)) {
+            Administration.Config.desc.set(motd);
+            lastMotd = motd;
+        }
     }
 
     private void giveStartingResources(Team team){// Null-check is necessary.
         if (team.core() == null) return;
-        team.core().items.set(Items.copper, 600);
-        team.core().items.set(Items.lead, 600);
-        team.core().items.set(Items.metaglass, 100);
-        team.core().items.set(Items.beryllium, 100);
+        // Built here, not in a static field: the plugin class is loaded before game content exists,
+        // so Items.copper etc. would still be null in a static initializer
+        ItemStack[] startItems = ItemStack.with(
+                Items.copper, 600,
+                Items.lead, 600,
+                Items.metaglass, 100,
+                Items.beryllium, 100
+        );
+        for (ItemStack stack : startItems) {
+            team.core().items.set(stack.item, stack.amount);
+        }
         // It wasn't working anyways iirc lol
 //        int bonus = getTeamResourceBonus();
 //        team.core().items.add(Items.copper, bonus + 600);
@@ -270,18 +291,10 @@ public class Main extends Plugin {
 
         CommandHandler.CommandRunner<Player> destroyCom = (args, player) -> {
             Tile tile = player.tileOn();
-            Team playerTeam = player.team();
-            if (tile.build == null || tile.build.team == player.team()) return;
+            // Only a building of your own team (spectators can't destroy anything).
+            // If it was the team's last nucleus/foundation, TeamDestroyTracker eliminates the team as usual.
+            if (tile == null || tile.build == null || !TeamInfo.isPlayerTeam(player.team()) || tile.build.team != player.team()) return;
             tile.build.kill();
-            if (!playerTeam.cores().isEmpty()) return;
-            TeamDestroyTracker.surrenderTeam(playerTeam);
-            if(player.unit() != null) player.unit().kill();
-            Groups.player.each(p -> p.team() == playerTeam, p -> {
-                p.team(Team.all[0]);
-                if (Cache.teamsInfo.containsKey(playerTeam)) {
-                    Cache.teamsInfo.get(playerTeam).setLeaderUuid("");
-                }
-            });
         };
 
         CommandHandler.CommandRunner<Player> spectateCom = (args, player) -> spectateCommand(player);
@@ -307,8 +320,10 @@ public class Main extends Plugin {
 
         CommandHandler.CommandRunner<Player> topCom = (args, player) -> menuManager.showLeaderBoard(player);
 
-        CommandHandler.CommandRunner<Player> rankCom = (args, player) -> {
-            LeaderBoardManager.Player stats = LeaderBoardManager.getPlayerStats(player.uuid());
+        CommandHandler.CommandRunner<Player> lobbyCom = (args, player) -> Call.connect(player.con, "c15.play2go.cloud", 20042);
+
+        CommandHandler.CommandRunner<Player> rankCom = (args, player) -> LeaderBoardManager.getPlayerStats(player.uuid(), stats -> {
+            if (!player.isAdded()) return; // left while the query was running
             if (stats == null) {
                 player.sendMessage(Localisation.local(player, "leaderboardPositionNotFound"));
                 return;
@@ -318,7 +333,7 @@ public class Main extends Plugin {
                             Localisation.local(player, "StatisticsPosition") + " " + stats.position + "\n" +
                             Localisation.local(player, "StatisticsPoints") + " " + stats.points
             );
-        };
+        });
 
         CommandHandler.CommandRunner<Player> forceCom = (args, player) -> {
             if (!player.admin()) {
@@ -330,58 +345,38 @@ public class Main extends Plugin {
 
         CommandHandler.CommandRunner<Player> cTeamCom = (args, player) -> {
             if (!player.admin()) {
-               player.sendMessage("[red]Access denied.");
-               return;
-           }
-           switch(args.length) {
-               case 1 -> {
-                   try {
-                       Team team = Team.all[Integer.parseInt(args[0])];
-                       player.team(team);
-                       player.update();
-                   } catch (Exception e) {
-                       player.sendMessage("[red]Invalid team ID.");
-                       player.sendMessage("[yellow]Available teams:");
-                       Set<Integer> teamIds = new HashSet<>();
-                       Groups.player.forEach(p -> teamIds.add(p.team().id));
-                       Cache.playerTeams.forEach(entry -> teamIds.add(entry.value.id));
-                       teamIds.forEach(id -> player.sendMessage("[yellow]" + id));
-                   }
-               }
-               case 2 -> {
-                   try {
-                       Team team = Team.all[Integer.parseInt(args[0])];
-                       String targetName = args[1].toLowerCase();
-                       try {
-                           Player target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
-                           if (target == null) throw new IllegalArgumentException("Player not found.");
-                           target.team(team);
-                       } catch (Exception e) {
-                           player.sendMessage("[red]Invalid player name.");
-                       }
-                   } catch (Exception e) {
-                       player.sendMessage("[red]Invalid team ID.");
-                       player.sendMessage("[yellow]Available teams:");
-                       Set<Integer> teamIds = new HashSet<>();
-                       Groups.player.forEach(p -> teamIds.add(p.team().id));
-                       Cache.playerTeams.forEach(entry -> teamIds.add(entry.value.id));
-                       teamIds.forEach(id -> player.sendMessage("[yellow]" + id));
-                   }
-               }
-               default -> {
-                   player.sendMessage("Invalid arguments, usage: /changeteam <teamID> [player]");
-               }
-           }
+                player.sendMessage("[red]Access denied.");
+                return;
+            }
+            int teamId = Strings.canParseInt(args[0]) ? Strings.parseInt(args[0]) : -1;
+            if (teamId < 0 || teamId >= Team.all.length) {
+                player.sendMessage("[red]Invalid team ID.");
+                sendAvailableTeams(player);
+                return;
+            }
+            Player target = player;
+            if (args.length > 1) {
+                String targetName = args[1].toLowerCase();
+                target = Groups.player.find(p -> p.plainName().toLowerCase().equals(targetName));
+                if (target == null) {
+                    player.sendMessage("[red]Invalid player name.");
+                    return;
+                }
+            }
+            target.team(Team.all[teamId]);
         };
 
         ///And finally registering commands with previous logic(kill me, please)
+        // No "t" and "a" aliases: those are the vanilla team and admin chat,
+        // and the client's team chat mode sends its messages as "/t ..."
         helpEntries.clear();
-        addCommand(handler,"Restart the game/Перезапустить игру", restartCom, "restart", "rc");
+        addCommand(handler, "Back to lobby/Перейти в лобби", lobbyCom, "lobby", "back");
+        addCommand(handler,"Restart the game/Перезапустить игру", restartCom, "restart", "r");
         addCommand(handler, "Destroy your building/Уничтожить строение", destroyCom, "destroy", "dr");
         addCommand(handler, "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей", spectateCom, "spectate", "s", "gg", "die");
-        addCommand(handler, "Team management/Управление командой", teamCom, "team", "t");
+        addCommand(handler, "Team management/Управление командой", teamCom, "team", "tm");
         addCommand(handler, "Join other team/Присоедениться к другой команде", joinCom, "join", "j");
-        addCommand(handler, "Accept join request/Принять игрока в команду", acceptCom, "accept", "a");
+        addCommand(handler, "Accept join request/Принять игрока в команду", acceptCom, "accept", "ac");
         addCommand(handler, "Deny join request/Отклонить запрос на вступление в команду", denyCom, "deny", "d");
         addCommand(handler, "Show a leaderboard/Показать лидерборд игроков", topCom, "top", "leaderboard", "lb");
         addCommand(handler, "Check leaderboard position/Узнать место в топе", rankCom, "rank", "place", "pl");
@@ -395,20 +390,22 @@ public class Main extends Plugin {
     }
     private static void spectateCommand(Player player) {
         Team playerTeam = player.team();
-        if (playerTeam == Team.all[0]) return;
-        boolean isLeader = false;
+        if (playerTeam == DEFAULT_TEAM) return;
         TeamInfo info = Cache.teamsInfo.get(playerTeam);
-        if (info != null && info.getLeaderUuid() != null) {
-            if (info.getLeaderUuid().equals(player.uuid())) {
-                isLeader = true;
-            }
-        }
-        if (isLeader) {
+        if (info != null && info.isLeader(player)) {
             TeamDestroyTracker.surrenderTeam(playerTeam);
         } else {
-            player.team(Team.all[0]);
+            player.team(DEFAULT_TEAM);
             if (player.unit() != null) player.unit().kill();
         }
+    }
+
+    private static void sendAvailableTeams(Player player) {
+        player.sendMessage("[yellow]Available teams:");
+        Set<Integer> teamIds = new HashSet<>();
+        Groups.player.forEach(p -> teamIds.add(p.team().id));
+        Cache.playerTeams.forEach(entry -> teamIds.add(entry.value.id));
+        teamIds.forEach(id -> player.sendMessage("[yellow]" + id));
     }
 
 
@@ -417,15 +414,14 @@ public class Main extends Plugin {
         handler.register("restart", "Restarts the game", args -> Restart.DoingRestart());
     }
 
-    // creating a new team
+    // creating a new team; null if every player team id is taken
     public Team takeNewTeam() {
         for (Team team : Team.all) {
-            if (!team.active() && team.id > 6) {
+            if (TeamInfo.isPlayerTeam(team) && !team.active()) {
                 return team;
             }
         }
-        // returning a team
-        return Team.all[0];
+        return null;
     }
 
     //Now it checks only cores, no all the buildings over the map
@@ -460,10 +456,20 @@ public class Main extends Plugin {
             for (int j = y - 2; j <= (y+2); j++) {
                 Tile curTile = world.tile(i,j);
                 if (curTile == null || curTile.floor() == null
-                        || curTile.floor().solid || !curTile.block().isAir()) return false;
+                        || curTile.floor().solid || curTile.floor().isDeep() || !curTile.block().isAir()) return false;
             }
         }
         return !nearAnyCore(tile, minCoreDistance);
+    }
+
+    // Every ground wave destroys all buildings in the drop zone around its spawn point
+    private boolean nearWaveSpawn(Tile tile) {
+        if (!state.rules.waves) return false;
+        float radius = state.rules.dropZoneRadius + Blocks.coreNucleus.size * tilesize / 2f;
+        for (Tile spawn : spawner.getSpawns()) {
+            if (spawn.within(tile.worldx(), tile.worldy(), radius)) return true;
+        }
+        return false;
     }
 
     private void addCommand(CommandHandler handler, String description, CommandHandler.CommandRunner<Player> logic, String... names){
