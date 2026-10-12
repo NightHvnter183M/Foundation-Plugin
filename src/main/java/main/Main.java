@@ -36,6 +36,7 @@ public class Main extends Plugin {
     private Boolean isPause = false;
     private MenuManager menuManager;
     private static final Team DEFAULT_TEAM = Team.derelict;
+    /** Minimal distance from a new core to any other core, in tiles. */
     private static final float MIN_CORE_DISTANCE = 150f;
     private final Seq<HelpEntry> helpEntries = new Seq<>();
     private String lastMotd;
@@ -48,9 +49,11 @@ public class Main extends Plugin {
         Administration.Config.motd.set("");
 
         MapVote.init();
+        PayloadVote.init();
         menuManager = new MenuManager();
         menuManager.init();
         TeamDestroyTracker.init();
+        PayloadWeapons.init();
         LeaderBoardManager.init();
         Blocks.coreShard.unitCapModifier = 1;
         Blocks.coreFoundation.unitCapModifier = 2;
@@ -213,9 +216,13 @@ public class Main extends Plugin {
             state.rules.unitCostMultiplier = 0.75f;
             state.rules.unitDamageMultiplier = 1.414f;
             state.rules.unitBuildSpeedMultiplier = 0.334f;
-            state.rules.unitPayloadUpdate = true;
+            // payload update: the default until this round's vote ends (PayloadVote)
+            PayloadVote.roundStarted();
             state.rules.reactorExplosions = true;
             state.rules.logicUnitBuild = true;
+            // Some maps are saved with polygon core protection: it splits the whole map between cores
+            // and forbids building on the "enemy" side of the border, which doesn't fit free-for-all PvP
+            state.rules.polygonCoreProtection = false;
             // starting items are given to every new core in giveStartingResources()
             Call.setRules(state.rules);
             Time.run(2f, () -> {
@@ -335,6 +342,8 @@ public class Main extends Plugin {
             );
         });
 
+        CommandHandler.CommandRunner<Player> payloadCom = (args, player) -> PayloadVote.command(player);
+
         CommandHandler.CommandRunner<Player> forceCom = (args, player) -> {
             if (!player.admin()) {
                 player.sendMessage("[red]Access denied.");
@@ -380,6 +389,7 @@ public class Main extends Plugin {
         addCommand(handler, "Deny join request/Отклонить запрос на вступление в команду", denyCom, "deny", "d");
         addCommand(handler, "Show a leaderboard/Показать лидерборд игроков", topCom, "top", "leaderboard", "lb");
         addCommand(handler, "Check leaderboard position/Узнать место в топе", rankCom, "rank", "place", "pl");
+        addCommand(handler, "Payload update vote/Голосование за работу груза", payloadCom, "payload");
         addCommand(handler, "[ADMIN ONLY]Force restart the game", forceCom, "forcerestart", "frestart", "force");
         addCommand(handler,"<teamID> [player]" , "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
         handler.register("help", "[page]", "Commands", this::sendHelp);
