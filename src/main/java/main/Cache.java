@@ -1,16 +1,14 @@
 package main;
 
-import arc.struct.ObjectIntMap;
 import arc.struct.ObjectMap;
 import arc.struct.ObjectSet;
 import mindustry.game.Team;
 
 public class Cache {
 
-    public static int teamMenuId, joinMenuId, acceptMenuId, denyMenuId, kickMenuId, WelcomeMenuId, mapVoteMenuId, SetLeaderMenuId, LeaderBoardMenuId, GuideOneMenuId, GuideTwoMenuId, GuideThreeMenuId;
+    /** uuid -> team the player was in when they left (only teams that were still alive). */
     public static ObjectMap<String, Team> playerTeams = new ObjectMap<>();
     public static ObjectMap<Team, TeamInfo> teamsInfo = new ObjectMap<>();
     public static ObjectMap<String, String> teamRequests = new ObjectMap<>();
     public static ObjectSet<String> restartVotes = new ObjectSet<>();
-    public static ObjectIntMap<String> votes = new ObjectIntMap<>();
 }

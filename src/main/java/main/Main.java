@@ -1,11 +1,11 @@
 package main;
 
+import arc.Core;
 import arc.math.Mathf;
 import arc.struct.Seq;
 import arc.util.Strings;
 import mindustry.content.Items;
 import mindustry.core.GameState;
-import mindustry.entities.Units;
 import mindustry.game.Teams;
 import mindustry.mod.Plugin;
 import mindustry.net.Administration;
@@ -34,7 +34,6 @@ import static mindustry.Vars.*;
 public class Main extends Plugin {
 
     private Boolean isPause = false;
-    private MenuManager menuManager;
     private static final Team DEFAULT_TEAM = Team.derelict;
     private static final float MIN_CORE_DISTANCE = 150f;
     private final Seq<HelpEntry> helpEntries = new Seq<>();
@@ -42,15 +41,15 @@ public class Main extends Plugin {
 
     @Override
     public void init() {
-        // Initialization code here
-        // Setting up server name and MOTD
         Administration.Config.serverName.set("[#5F9EA0]Foundation PvP");
         Administration.Config.motd.set("");
 
         MapVote.init();
-        menuManager = new MenuManager();
-        menuManager.init();
+        PayloadVote.init();
+        Restart.init();
+        MenuManager.init();
         TeamDestroyTracker.init();
+        PayloadWeapons.init();
         LeaderBoardManager.init();
         Blocks.coreShard.unitCapModifier = 1;
         Blocks.coreFoundation.unitCapModifier = 2;
@@ -69,7 +68,7 @@ public class Main extends Plugin {
             Cache.teamsInfo.clear();
             Cache.teamRequests.clear();
             Cache.playerTeams.clear();
-            menuManager.clear();
+            MenuManager.reset();
             MapVote.reset();
             Restart.reset();
         });
@@ -79,21 +78,8 @@ public class Main extends Plugin {
             @Override
             public void run() {
                 Time.runTask(60f, this);
-                int hours = maxTime / 3600;
-                int minutes = (maxTime % 3600) / 60;
-                int seconds = (maxTime % 3600) % 60;
-                String timeDisplay = """
-                        [#5F9EA0]Foundation PvP
-                        [white]Time until end of round: %02d:%02d:%02d
-                        """.formatted(hours, minutes, seconds);
-                Groups.player.each(player -> {
-                    Team team = player.team();
-                    if (team == DEFAULT_TEAM) {
-                        Call.setHudText(player.con, timeDisplay);
-                    } else {
-                        Call.setHudText(player.con, timeDisplay + "Max units: " + Units.getCap(team) + "\n");
-                    }
-                });
+                // the panel under the minimap and the labels over cores and wave spawns
+                Hud.update();
                 PointsManager.updateRatings();
                 updateMOTD();
                 if (maxTime > 0) {
@@ -114,7 +100,9 @@ public class Main extends Plugin {
         // When a player joins the server (their team was already chosen by netServer.assigner)
         Events.on(EventType.PlayerJoin.class, event -> {
             Player pl = event.player;
-            menuManager.showGuide(pl);
+            MenuManager.showGuide(pl);
+            // they may be back in their team: its members changed
+            MenuManager.refreshTeamPanels();
             //unpausing server if it was paused
             if (isPause || state.isPaused()) {
                 state.set(GameState.State.playing);
@@ -133,12 +121,14 @@ public class Main extends Plugin {
                 Cache.playerTeams.remove(pl.uuid());
             }
             teamRequests.remove(pl.uuid());
-            menuManager.forget(pl);
+            MenuManager.forget(pl);
             // The leader left: an online teammate takes over (if nobody is online, the leader keeps the role)
             TeamInfo info = Cache.teamsInfo.get(team);
             if (info != null && info.isLeader(pl)) {
-                menuManager.passLeadership(team, pl);
+                MenuManager.passLeadership(team, pl);
             }
+            // the player is removed after this event: refresh the panels once they are gone
+            Core.app.post(MenuManager::refreshTeamPanels);
             //pausing server
             if(Groups.player.size() == 1) {
                 state.set(GameState.State.paused);
@@ -174,10 +164,11 @@ public class Main extends Plugin {
                 return;
             }
             // Always a fresh TeamInfo: this id may have belonged to an eliminated team
-            Cache.teamsInfo.put(newTeam, new TeamInfo(player.uuid()));
+            Cache.teamsInfo.put(newTeam, new TeamInfo(player));
             tile.setNet(Blocks.coreNucleus, newTeam, 0);
             Time.run(1f, () -> giveStartingResources(newTeam));
             player.team(newTeam);
+            MenuManager.refreshTeamPanels();
         });
         // Replacing vault with core sharped
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
@@ -213,9 +204,11 @@ public class Main extends Plugin {
             state.rules.unitCostMultiplier = 0.75f;
             state.rules.unitDamageMultiplier = 1.414f;
             state.rules.unitBuildSpeedMultiplier = 0.334f;
-            state.rules.unitPayloadUpdate = true;
+            // payload update: the default until this round's vote ends (PayloadVote)
+            PayloadVote.roundStarted();
             state.rules.reactorExplosions = true;
             state.rules.logicUnitBuild = true;
+            state.rules.polygonCoreProtection = false;
             // starting items are given to every new core in giveStartingResources()
             Call.setRules(state.rules);
             Time.run(2f, () -> {
@@ -299,26 +292,12 @@ public class Main extends Plugin {
 
         CommandHandler.CommandRunner<Player> spectateCom = (args, player) -> spectateCommand(player);
 
-        CommandHandler.CommandRunner<Player> teamCom = (args, player) -> {
-            String[][] buttons = {
-                    { Localisation.local(player, "teamMenuJoinButton") },
-                    { Localisation.local(player, "teamMenuAcceptButton") },
-                    { Localisation.local(player, "teamMenuKickButton") },
-                    { Localisation.local(player, "teamMenuDenyButton") },
-                    { Localisation.local(player, "teamMenuLeadButton") },
-                    { Localisation.local(player, "menuCloseButton") },
-            };
-            // Open the team management menu for the player
-            Call.menu(player.con,  Cache.teamMenuId, Localisation.local(player, "teamMenuTitle"), Localisation.local(player, "teamMenuMessage"), buttons);
-        };
+        // one panel for everything about teams: members, requests, joining another team, leaving
+        CommandHandler.CommandRunner<Player> teamCom = (args, player) -> MenuManager.showTeamPanel(player);
 
-        CommandHandler.CommandRunner<Player> joinCom = (args, player) -> menuManager.showJoinMenu(player);
+        CommandHandler.CommandRunner<Player> topCom = (args, player) -> MenuManager.showLeaderBoard(player);
 
-        CommandHandler.CommandRunner<Player> acceptCom = (args, player) -> menuManager.showAcceptMenu(player);
-
-        CommandHandler.CommandRunner<Player> denyCom = (args, player) -> menuManager.showDenyMenu(player);
-
-        CommandHandler.CommandRunner<Player> topCom = (args, player) -> menuManager.showLeaderBoard(player);
+        CommandHandler.CommandRunner<Player> guideCom = (args, player) -> MenuManager.showGuide(player);
 
         CommandHandler.CommandRunner<Player> lobbyCom = (args, player) -> Call.connect(player.con, "c15.play2go.cloud", 20042);
 
@@ -334,6 +313,8 @@ public class Main extends Plugin {
                             Localisation.local(player, "StatisticsPoints") + " " + stats.points
             );
         });
+
+        CommandHandler.CommandRunner<Player> payloadCom = (args, player) -> PayloadVote.command(player);
 
         CommandHandler.CommandRunner<Player> forceCom = (args, player) -> {
             if (!player.admin()) {
@@ -374,19 +355,15 @@ public class Main extends Plugin {
         addCommand(handler,"Restart the game/Перезапустить игру", restartCom, "restart", "r");
         addCommand(handler, "Destroy your building/Уничтожить строение", destroyCom, "destroy", "dr");
         addCommand(handler, "Destroys all your buildings and sends you to spectators/Уничтожает все постройки команды и переводит в наблюдателей", spectateCom, "spectate", "s", "gg", "die");
-        addCommand(handler, "Team management/Управление командой", teamCom, "team", "tm");
-        addCommand(handler, "Join other team/Присоедениться к другой команде", joinCom, "join", "j");
-        addCommand(handler, "Accept join request/Принять игрока в команду", acceptCom, "accept", "ac");
-        addCommand(handler, "Deny join request/Отклонить запрос на вступление в команду", denyCom, "deny", "d");
+        ///  NOTE: join/accept/deny now open the same team panel
+        addCommand(handler, "Teams: members, requests, joining/Команды: участники, заявки, вступление", teamCom, "team", "tm", "join", "j", "accept", "ac",  "deny", "d");
         addCommand(handler, "Show a leaderboard/Показать лидерборд игроков", topCom, "top", "leaderboard", "lb");
+        addCommand(handler, "Guide/Гайд по серверу", guideCom, "guide");
         addCommand(handler, "Check leaderboard position/Узнать место в топе", rankCom, "rank", "place", "pl");
+        addCommand(handler, "Payload update vote/Голосование за работу груза", payloadCom, "payload");
         addCommand(handler, "[ADMIN ONLY]Force restart the game", forceCom, "forcerestart", "frestart", "force");
         addCommand(handler,"<teamID> [player]" , "[ADMIN ONLY] Changes specified player's team.(Yours if player is unspecified.)", cTeamCom, "cteam", "changeteam");
         handler.register("help", "[page]", "Commands", this::sendHelp);
-
-
-
-
     }
     private static void spectateCommand(Player player) {
         Team playerTeam = player.team();

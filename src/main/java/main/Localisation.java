@@ -11,6 +11,7 @@ import java.util.Properties;
 public class Localisation {
     private static final ObjectMap<String, Properties> langCache = new ObjectMap<>();
     private static final String BASE_NAME = "localis";
+    private static final String UI_NAME = "ui";
 
     public static String local(Player player, String key, Object... args) {
         String lang = (player != null && player.locale != null && player.locale.length() >= 2)
@@ -47,12 +48,18 @@ public class Localisation {
 
     private static void loadLanguage(String lang) {
         Properties props = new Properties();
+        loadFile(props, BASE_NAME, lang);
+        // strings of the menus and the HUD live in their own files: ui.properties, ui_ru.properties
+        loadFile(props, UI_NAME, lang);
+        langCache.put(lang, props);
+    }
 
-        String fileName = "/" + BASE_NAME + "_" + lang + ".properties";
+    private static void loadFile(Properties props, String base, String lang) {
+        String fileName = "/" + base + "_" + lang + ".properties";
         InputStream in = Localisation.class.getResourceAsStream(fileName);
 
         if (in == null && lang.equals("en")) {
-            fileName = "/" + BASE_NAME + ".properties";
+            fileName = "/" + base + ".properties";
             in = Localisation.class.getResourceAsStream(fileName);
         }
 
@@ -66,7 +73,5 @@ public class Localisation {
         } else {
             Log.warn("Localisation not fount: " + fileName);
         }
-
-        langCache.put(lang, props);
     }
 }

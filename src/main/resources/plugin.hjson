@@ -3,8 +3,8 @@
   "displayName": "Foundation,
   "author": "NightHvnter183M",
   "main": "main.Main",
-  "description": "base plugin for Foundation Pvp server",
-  "version": 1.6,
+  "description": "base plugin for Foundation PvP server",
+  "version": 2.0,
   "minGameVersion": "145.2",
   "dependencies": []
 }

@@ -8,7 +8,11 @@ import mindustry.content.Blocks;
 import mindustry.game.EventType;
 import mindustry.game.Team;
 import mindustry.gen.Groups;
+import mindustry.gen.Iconc;
 import mindustry.world.blocks.storage.CoreBlock;
+
+import static main.Localisation.local;
+import static mindustry.Vars.state;
 
 public class TeamDestroyTracker {
 
@@ -63,6 +67,7 @@ public class TeamDestroyTracker {
 
         destroyedTeams.add(victimTeam);
         Team destroyer = findDestroyer(victimTeam);
+        announceDestroyed(victimTeam, destroyer);
         if (destroyer != null) {
             PointsManager.pointCounter(destroyer, victimTeam);
         }
@@ -100,6 +105,7 @@ public class TeamDestroyTracker {
         for (var it = Cache.playerTeams.entries(); it.hasNext(); ) {
             if (it.next().value == team) it.remove();
         }
+        MenuManager.refreshTeamPanels();
     }
 
     public static void surrenderTeam(Team team) {
@@ -109,7 +115,36 @@ public class TeamDestroyTracker {
         }
 
         destroyedTeams.add(team);
+        announceSurrender(team);
         kill_team(team);
         Time.run(60f, () -> destroyedTeams.remove(team));
+    }
+
+    private static void announceDestroyed(Team victim, Team destroyer) {
+        if (!TeamInfo.isPlayerTeam(victim)) return;
+
+        String victimName = Ui.teamTitle(victim), victimLife = Ui.duration(lifetime(victim));
+        boolean byTeam = TeamInfo.isPlayerTeam(destroyer);
+        String destroyerName = byTeam ? Ui.teamTitle(destroyer) : null;
+        String destroyerLife = byTeam ? Ui.duration(lifetime(destroyer)) : null;
+        boolean byWaves = destroyer != null && destroyer == state.rules.waveTeam;
+
+        Groups.player.each(p -> {
+            String text = byTeam ? local(p, "uiTeamDestroyedBy", destroyerName, victimName, victimLife, destroyerLife)
+                    : byWaves ? local(p, "uiTeamDestroyedByWaves", victimName, victimLife)
+                    : local(p, "uiTeamDestroyed", victimName, victimLife);
+            p.sendMessage("[#8B008B]" + Iconc.modePvp + "[] " + text);
+        });
+    }
+
+    private static void announceSurrender(Team team) {
+        if (!TeamInfo.isPlayerTeam(team)) return;
+        String name = Ui.teamTitle(team), life = Ui.duration(lifetime(team));
+        Groups.player.each(p -> p.sendMessage("[lightgray]" + Iconc.modePvp + "[] " + local(p, "uiTeamSurrendered", name, life)));
+    }
+
+    private static int lifetime(Team team) {
+        TeamInfo info = Cache.teamsInfo.get(team);
+        return info == null ? 0 : info.lifetimeSeconds();
     }
 }
